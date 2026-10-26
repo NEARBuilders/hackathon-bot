@@ -1,4 +1,5 @@
-"""Hourly check on the server: is the bot running, and do the live rules still match its copy?
+"""Hourly check on the server: is the bot running, can it still reach its model, and do the live
+rules still match its copy?
 
 Alerts go to TELEGRAM_HOME_CHANNEL (in data/.env: the maintainer's private chat) through the bot's
 own token. The same alert is not sent twice in a row; once everything matches again, the next
@@ -11,8 +12,10 @@ problem alerts afresh. A maintainer updates data/SOUL.md and sources/, then runs
 import difflib
 import hashlib
 import json
+import re
 import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -41,10 +44,41 @@ def running():
     return out.stdout.strip() == "true"
 
 
+def model_problem():
+    """One tiny call with the bot's own key and model, so a dead key, exhausted credits, a silently
+    rerouted model ID or a reply from outside a TEE alerts here before users notice."""
+    config = (BASE / "data" / "config.yaml").read_text()
+    model = re.search(r"^  default: (\S+)", config, re.M).group(1)
+    api = re.search(r"^  base_url: (\S+)", config, re.M).group(1).rstrip("/")
+    headers = {"Authorization": "Bearer " + env(BASE / "data" / ".env").get("NEARAI_API_KEY", ""),
+               "Content-Type": "application/json"}
+    body = json.dumps({"model": model, "max_tokens": 5, "messages": [{"role": "user", "content": "Reply with OK"}]})
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"{api}/chat/completions", body.encode(), headers), timeout=60) as r:
+            reply = json.load(r)
+    except urllib.error.HTTPError as e:
+        return f"NEAR AI call failed with HTTP {e.code}: the key may be invalid or out of credits."
+    except (OSError, ValueError) as e:
+        return f"NEAR AI call failed: {type(e).__name__}."
+    if reply.get("model") != model:
+        return f"NEAR AI answered with {reply.get('model')} instead of {model}: the model ID may be retired and rerouted."
+    query = urllib.parse.urlencode({"model": model, "signing_algo": "ecdsa"})
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"{api}/signature/{reply['id']}?{query}", headers=headers), timeout=60) as r:
+            kind = json.load(r).get("signature_kind")
+    except (OSError, ValueError, KeyError) as e:
+        return f"Couldn't fetch the reply's signature from NEAR AI ({type(e).__name__}); the bot itself may be fine."
+    if kind != "provider_tee":
+        return f"Replies from {model} are no longer signed inside a TEE (signature_kind: {kind})."
+    return None
+
+
 def problems():
     found = []
     if not running():
         found.append(f"The {CONTAINER} container is not running.")
+    if problem := model_problem():
+        found.append(problem)
     try:
         live = sources.current()
     except OSError as e:

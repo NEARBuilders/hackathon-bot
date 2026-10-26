@@ -37,7 +37,7 @@ data/                 the bot: synced to the server's Hermes home (/opt/data in 
   plugins/near-docs/  the read-only docs tools
 sources/              live rules and homepage text that SOUL.md is built from (baseline for the check)
 deploy.sh             push data/, ops/ and sources/ to the server and restart the bot
-ops/check.py          hourly: is the bot running, and do the live rules still match sources/?
+ops/check.py          hourly: is the bot running, can it reach its model, do the rules still match sources/?
 ops/sources.py        fetches the rules in a stable, comparable form
 ops/test.sh           ask the bot questions using the local data/, safely (see Testing)
 ops/test-questions.txt  the default test questions
@@ -92,8 +92,9 @@ it would poll Telegram and fight the live bot for messages.
 
 ## When the rules change
 
-`ops/check.py` runs hourly and messages the home channel when the bot is down or the live rules differ
-from `sources/` (with a diff). Then:
+`ops/check.py` runs hourly and messages the home channel when the bot is down, when a tiny test call to
+its model fails or comes back from a different model or outside a TEE (a dead key, exhausted credits, a
+retired model ID), or when the live rules differ from `sources/` (with a diff). For a rule change:
 
 1. Update `data/SOUL.md` to match.
 2. Refresh the baseline: `python3 ops/sources.py`
@@ -111,9 +112,14 @@ change from a chat message.
 - **Someone pasted a seed phrase or other secret:** `./deploy.sh --reset`, then delete the matching lines from
   `/opt/hack-bot/data/logs/`.
 - **The bot is in a group it shouldn't be:** find the chat ID with
-  `grep -o 'chat=-[0-9]*' /opt/hack-bot/data/logs/agent.log | sort | uniq -c`, then make it leave:
+  `ssh root@$(hcloud server ip hack-bot) "grep -o 'chat=-[0-9]*' /opt/hack-bot/data/logs/agent.log | sort | uniq -c"`,
+  then make it leave:
   `curl -s "https://api.telegram.org/bot<token>/leaveChat?chat_id=<chat id>"`. To stop all new
   groups, turn off Allow Groups in @BotFather.
+- **Alert: NEAR AI call failed:** top up the account's credits, or replace the key in `.env` and `./deploy.sh`.
+- **Alert: answered with a different model:** the model ID was retired. Pick a current model that's
+  `owned_by: nearai` from `https://cloud-api.near.ai/v1/models`, set it as `model.default` in
+  `data/config.yaml`, then `ops/test.sh` and `./deploy.sh --reset`.
 - **The bot posts something wrong:** fix `data/SOUL.md`, `ops/test.sh`, then `./deploy.sh --reset`.
 
 ## After the event
