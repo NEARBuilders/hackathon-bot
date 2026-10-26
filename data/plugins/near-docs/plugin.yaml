@@ -1,0 +1,8 @@
+name: near-docs
+version: 1.0.0
+description: Read-only access to official NEAR docs and the live hackathon rules (fixed hosts, Markdown only), plus a filter that keeps replies to allowlisted links
+provides_tools:
+  - search_near_docs
+  - read_near_docs
+provides_hooks:
+  - transform_llm_output

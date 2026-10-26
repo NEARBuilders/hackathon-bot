@@ -1,0 +1,74 @@
+model:
+  default: z-ai/glm-5.3-flash
+  provider: custom
+  base_url: https://cloud-api.near.ai/v1
+  api_key: ${NEARAI_API_KEY}
+# Every model call goes to NEAR AI Cloud: no fallback provider. Voice notes aren't transcribed
+# (the image has no local speech-to-text); the model sees a placeholder and asks people to type.
+fallback_providers: []
+stt:
+  enabled: false
+# The only tools: read-only NEAR docs and live rules, plus the link filter on replies (data/plugins/near-docs).
+plugins:
+  enabled: [near-docs]
+# Matches the image's schema, so the container doesn't migrate and rewrite this file on start.
+_config_version: 51
+agent:
+  # Enough for: search the docs, read a page or two, answer.
+  max_turns: 6
+  # Measured on GLM-5.3-Flash: same answers, about 3x faster, ~1 reasoning token instead of ~100.
+  reasoning_effort: low
+  # Public bot: strangers can talk to it, so every built-in tool is off.
+  disabled_toolsets: [bot_room, browser, catalog, clarify, code_execution, coding, computer_use, connections, context_engine, cronjob, debugging, delegation, desktop_ui, discord, discord_admin, feishu_doc, feishu_drive, file, homeassistant, image_gen, kanban, memory, onboarding, project, safe, search, session_search, skills, spotify, terminal, todo, tts, video, video_gen, vision, web, x_search, yuanbao]
+platform_toolsets:
+  telegram: [near_docs]
+# Load the two docs tools directly. Tool search would hide them behind generic
+# tool_search/tool_describe/tool_call bridge tools: more round-trips for a small model.
+tools:
+  tool_search:
+    enabled: off
+memory:
+  memory_enabled: false
+  user_profile_enabled: false
+# No first-message "build your profile" offer (it asks strangers for personal details) and no
+# busy-message bubbles or tips; a second quick question waits its turn instead of cancelling the first.
+onboarding:
+  profile_build: "off"   # quoted: YAML reads a bare off as false, which Hermes treats as "ask"
+display:
+  busy_input_mode: queue
+  busy_ack_enabled: false
+  # The link filter only sees the final answer, so post nothing else: no mid-turn text, no reasoning.
+  interim_assistant_messages: false
+  show_reasoning: false
+# Group chats are per-user by default; forum topics are shared per topic unless this is set.
+thread_sessions_per_user: true
+
+gateway:
+  platforms:
+    telegram:
+      extra:
+        allow_admin_from: ["0"]
+        # start: Telegram's Start button sends /start; Hermes acknowledges it silently.
+        user_allowed_commands: [new, start]
+        group_allow_admin_from: ["0"]
+        group_user_allowed_commands: [new, start]
+
+# Lives in the NEAR Builders chat: answer only replies, @mentions and
+# /command@botname, so other bots' plain commands (/onboard, /start) are ignored.
+telegram:
+  require_mention: true
+  # 👀 on a question as soon as the bot picks it up, then 👍 when answered (👎 on failure).
+  # The emojis are fixed in Hermes. Typing… still shows too.
+  reactions: true
+
+# Hermes publishes ~60 commands to Telegram's / menu by default (and overwrites BotFather's list on
+# every start). Show only what users can actually run. Read from top-level platforms:, not gateway:.
+platforms:
+  telegram:
+    extra:
+      # Answer messages that arrive while the bot restarts (e.g. during a deploy) instead of dropping them.
+      drop_pending_on_cold_boot: false
+      command_menu:
+        max_commands: 2
+        priority_mode: replace
+        priority: [new, help]
