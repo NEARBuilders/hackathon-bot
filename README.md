@@ -1,7 +1,7 @@
 # NearHackathonBot
 
 A community-run Telegram bot ([@NearHackathonBot](https://t.me/NearHackathonBot)) that answers questions
-about [NEAR HACKATHON](https://nearhackathon.com) (1–14 Nov 2026): rules, dates, tracks, prizes and
+about [NEAR Hackathon](https://nearhackathon.com) (1–14 Nov 2026): rules, dates, tracks, prizes and
 submitting, plus how to build on NEAR, answered from the official docs. It isn't run by the
 organizers and says so. See [SCOPE.md](SCOPE.md) for the product scope.
 
@@ -27,6 +27,7 @@ organizers and says so. See [SCOPE.md](SCOPE.md) for the product scope.
   Anyone can add it to a group (BotFather's Allow Groups is on), so teams can use it in their own chats.
   Each person has their own conversation; memory across conversations is off.
 - **Commands:** users can run `/new`, `/start`, `/help` and `/whoami`. Everything else is refused.
+  `/start`, `/help` and the `/` menu get plain text from [`data/plugins/welcome`](data/plugins/welcome).
 
 ## Layout
 
@@ -34,7 +35,8 @@ organizers and says so. See [SCOPE.md](SCOPE.md) for the product scope.
 data/                 the bot: synced to the server's Hermes home (/opt/data in the container)
   config.yaml         model, lockdown, Telegram settings
   SOUL.md             instructions and hackathon knowledge
-  plugins/near-docs/  the read-only docs tools
+  plugins/near-docs/  the read-only docs tools and the link filter
+  plugins/welcome/    the /start greeting, /help text and / menu descriptions
 sources/              live rules and homepage text that SOUL.md is built from (baseline for the check)
 deploy.sh             push data/, ops/ and sources/ to the server and restart the bot
 ops/check.py          hourly: is the bot running, can it reach its model, do the rules still match sources/?

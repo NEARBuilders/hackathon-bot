@@ -9,8 +9,9 @@ fallback_providers: []
 stt:
   enabled: false
 # The only tools: read-only NEAR docs and live rules, plus the link filter on replies (data/plugins/near-docs).
+# welcome: the bot's own /start greeting, /help text and / menu descriptions (data/plugins/welcome).
 plugins:
-  enabled: [near-docs]
+  enabled: [near-docs, welcome]
 # Matches the image's schema, so the container doesn't migrate and rewrite this file on start.
 _config_version: 51
 agent:
@@ -48,10 +49,10 @@ gateway:
     telegram:
       extra:
         allow_admin_from: ["0"]
-        # start: Telegram's Start button sends /start; Hermes acknowledges it silently.
-        user_allowed_commands: [new, start]
+        # /start and /help never reach Hermes: the welcome plugin answers them.
+        user_allowed_commands: [new]
         group_allow_admin_from: ["0"]
-        group_user_allowed_commands: [new, start]
+        group_user_allowed_commands: [new]
 
 # Lives in the NEAR Builders chat: answer only replies, @mentions and
 # /command@botname, so other bots' plain commands (/onboard, /start) are ignored.
