@@ -1,0 +1,3 @@
+name: prompt-trim
+version: 1.0.0
+description: Keeps the bot's instructions to SOUL.md by removing Hermes' blocks that config.yaml can't switch off

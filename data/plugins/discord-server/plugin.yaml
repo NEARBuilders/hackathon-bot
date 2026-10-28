@@ -1,0 +1,3 @@
+name: discord-server
+version: 1.0.0
+description: Keeps the Discord bot in its own servers (DISCORD_GUILD_IDS) and leaves any other it is added to

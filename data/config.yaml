@@ -9,9 +9,11 @@ fallback_providers: []
 stt:
   enabled: false
 # The only tools: read-only NEAR docs and live rules, plus the link filter on replies (data/plugins/near-docs).
-# welcome: the bot's own /start greeting, /help text and / menu descriptions (data/plugins/welcome).
+# welcome: the bot's own /start greeting, /help text and / menu (data/plugins/welcome).
+# discord-server: the Discord bot stays in its own servers (data/plugins/discord-server).
+# rate-limit: a cap on questions per person, so no one can use up the credits (data/plugins/rate-limit).
 plugins:
-  enabled: [near-docs, welcome]
+  enabled: [near-docs, welcome, discord-server, rate-limit, prompt-trim]
 # Matches the image's schema, so the container doesn't migrate and rewrite this file on start.
 _config_version: 51
 agent:
@@ -19,15 +21,33 @@ agent:
   max_turns: 6
   # Measured on GLM-5.3-Flash: same answers, about 3x faster, ~1 reasoning token instead of ~100.
   reasoning_effort: low
+  # Hermes' guidance for a coding agent (finish the job, batch tool calls, keep calling tools, verify
+  # writes) competes with SOUL.md in a Q&A bot. The prompt-trim plugin removes the blocks with no setting.
+  task_completion_guidance: false
+  parallel_tool_call_guidance: false
+  tool_use_enforcement: false
+  execution_guidance: false
+  environment_probe: false
   # Public bot: strangers can talk to it, so every built-in tool is off.
   disabled_toolsets: [bot_room, browser, catalog, clarify, code_execution, coding, computer_use, connections, context_engine, cronjob, debugging, delegation, desktop_ui, discord, discord_admin, feishu_doc, feishu_drive, file, homeassistant, image_gen, kanban, memory, onboarding, project, safe, search, session_search, skills, spotify, terminal, todo, tts, video, video_gen, vision, web, x_search, yuanbao]
+# Replace Hermes' formatting notes, which also teach sending files with MEDIA:/path.
+platform_hints:
+  telegram:
+    replace: "You are on Telegram, mostly in a group chat. **bold**, `code` and links render; use short lines or simple bullets, no tables or headers."
+  discord:
+    replace: "You are on Discord, in a server channel or a DM. **bold**, `code` and links render; use short lines or simple bullets, no tables or headers."
 platform_toolsets:
   telegram: [near_docs]
+  discord: [near_docs]
 # Load the two docs tools directly. Tool search would hide them behind generic
 # tool_search/tool_describe/tool_call bridge tools: more round-trips for a small model.
 tools:
   tool_search:
     enabled: off
+# /new runs straight away. Hermes otherwise asks to confirm it, and its "Always Approve" button
+# writes this same setting into config.yaml: any user could rewrite the bot's config.
+approvals:
+  destructive_slash_confirm: false
 memory:
   memory_enabled: false
   user_profile_enabled: false
@@ -38,9 +58,11 @@ onboarding:
 display:
   busy_input_mode: queue
   busy_ack_enabled: false
-  # The link filter only sees the final answer, so post nothing else: no mid-turn text, no reasoning.
+  # The link filter only sees the final answer, so post nothing else: no mid-turn text, no reasoning,
+  # no tool-progress bubbles (Discord shows them by default, with the start of each tool's arguments).
   interim_assistant_messages: false
   show_reasoning: false
+  tool_progress: "off"   # quoted: YAML reads a bare off as false
 # Group chats are per-user by default; forum topics are shared per topic unless this is set.
 thread_sessions_per_user: true
 
@@ -53,6 +75,12 @@ gateway:
         user_allowed_commands: [new]
         group_allow_admin_from: ["0"]
         group_user_allowed_commands: [new]
+    discord:
+      extra:
+        allow_admin_from: ["0"]
+        user_allowed_commands: [new]
+        group_allow_admin_from: ["0"]
+        group_user_allowed_commands: [new]
 
 # Lives in the NEAR Builders chat: answer only replies, @mentions and
 # /command@botname, so other bots' plain commands (/onboard, /start) are ignored.
@@ -62,6 +90,17 @@ telegram:
   # The emojis are fixed in Hermes. Typing… still shows too.
   reactions: true
 
+# Lives in the NEAR Discord. Same as Telegram: answer only @mentions and replies, in place rather than
+# in a new thread.
+discord:
+  require_mention: true
+  auto_thread: false
+  reactions: true
+  # Off: on a mention Hermes would otherwise add everyone else's channel messages since the bot's
+  # last reply to the conversation. Each person's conversation stays their own, and strangers'
+  # messages can't steer someone else's answer.
+  history_backfill: false
+
 # Hermes publishes ~60 commands to Telegram's / menu by default (and overwrites BotFather's list on
 # every start). Show only what users can actually run. Read from top-level platforms:, not gateway:.
 platforms:
@@ -69,7 +108,13 @@ platforms:
     extra:
       # Answer messages that arrive while the bot restarts (e.g. during a deploy) instead of dropping them.
       drop_pending_on_cold_boot: false
+      # No preview cards under answers: most replies link the same homepage.
+      disable_link_previews: true
       command_menu:
         max_commands: 2
         priority_mode: replace
         priority: [new, help]
+  discord:
+    extra:
+      # Hermes' ~50 slash commands are off; the welcome plugin publishes /new and /help.
+      slash_commands: false

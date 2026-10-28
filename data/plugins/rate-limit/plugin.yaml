@@ -1,0 +1,5 @@
+name: rate-limit
+version: 1.0.0
+description: A cap on questions per person on Telegram and Discord, so no one can use up the NEAR AI credits
+provides_hooks:
+  - pre_gateway_dispatch

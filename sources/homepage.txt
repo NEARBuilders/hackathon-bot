@@ -395,14 +395,11 @@ meme.cooking
 Memecoin launchpad
 Website
 Docs
-— not available
-Git
-— not available
+API
 HEX
 Cross-chain swaps
 Website
 Docs
-— not available
 Git
 — not available
 NEAR.AI
@@ -414,7 +411,6 @@ SVRN
 Sovereign technology
 Website
 Docs
-— not available
 Git
 — not available
 Trezu
@@ -461,7 +457,7 @@ No sign-up to start. Build with your team or solo, then submit once before devel
 14 Nov 2026 · 23:59 UTC
 .
 01
-Build your project during the hackathon
+Build your project. Code written since the announcement counts
 02
 Publish the repository. Judges can’t open a private one
 03
@@ -517,26 +513,27 @@ Website
 I agree that the organizers may use these details to review our submission and contact us about this hackathon.
 Submissions open
 1 Nov 2026 · 00:00 UTC
-One submission per team. No wallet connection needed.
+One submission per project. No wallet connection needed.
 07 / FREQUENT QUERIES
 QUESTIONS?
 START HERE
 Who can take part?
 Developers, designers and people with ideas for the NEAR ecosystem. No wallet connection is needed to submit: you only enter a NEAR account address, and if you win, the prize is sent there.
 Do I need a team already?
-No. Build as a solo builder or with a team — one submission per team. Looking for teammates? Join the NEAR Discord and find them there.
+No. Build as a solo builder or with a team — one submission per project, and one person can enter up to 2 different projects, if they are independent and each README names the other one. Looking for teammates? Join the NEAR Discord and find them there.
 When does it happen?
 The hackathon starts 1 Nov 2026 · 00:00 UTC. Development runs for two weeks and ends 14 Nov 2026 · 23:59 UTC, and results are announced by 18 Nov 2026 · 23:59 UTC. The full schedule is in the at-a-glance panel.
 What should we submit?
 A working prototype in a public repository and a public demo post on X: say you built it at NEAR HACKATHON and attach the demo video or screenshots. Send both links through the form before development ends, 14 Nov 2026 · 23:59 UTC.
 How will projects be judged?
-Projects are reviewed by the jury above, with Claude Code & Codex joining as AI judges. Previous NEAR hackathons evaluated technical implementation, design, impact, originality and sustainability — a good guide to prepare by.
+Claude Code & Codex screen every project first: they check that it runs and does what the README says. The human judges above make the decisions. Previous NEAR hackathons evaluated technical implementation, design, impact, originality and sustainability — a good guide to prepare by.
 Can I build something across multiple tracks?
-Yes. Select every track your project fits in the submission form. It is still one submission per team.
+Yes. Select every track your project fits in the submission form. It is still one submission per project.
 NEAR Hackathon home
 HCKTHN
 BUILT FOR
 BUILDERS
+Cookie settings
 Back to top ↑
 NEAR HACKATHON
 Project submission

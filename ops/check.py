@@ -1,5 +1,5 @@
-"""Hourly check on the server: is the bot running, can it still reach its model, and do the live
-rules still match its copy?
+"""Hourly check on the server: is the bot running and connected to Telegram and Discord, can it
+still reach its model, and do the live rules still match its copy?
 
 Alerts go to TELEGRAM_HOME_CHANNEL (in data/.env: the maintainer's private chat) through the bot's
 own token. The same alert is not sent twice in a row; once everything matches again, the next
@@ -18,6 +18,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -27,6 +28,9 @@ BASE = Path(__file__).resolve().parent.parent
 CONTAINER = BASE.name
 STATE = BASE / "state" / "last-alert"
 MAX_DIFF_LINES = 40
+PLATFORMS = ("telegram", "discord")
+# A reconnect usually takes seconds; only one that's still going after this is worth an alert.
+RECONNECT_GRACE = timedelta(minutes=10)
 
 
 def env(path):
@@ -42,6 +46,33 @@ def running():
     out = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", CONTAINER],
                          capture_output=True, text=True)
     return out.stdout.strip() == "true"
+
+
+def platform_problems():
+    """Hermes parks a platform that fails to connect (Discord refusing the bot's intents, a revoked
+    token) and keeps serving the rest, so the container stays up and running() alone misses it."""
+    try:
+        gateway = json.loads((BASE / "data" / "gateway_state.json").read_text())
+        platforms, pid = gateway["platforms"], gateway.get("pid")
+    except (OSError, ValueError, KeyError) as e:
+        return [f"Couldn't read the bot's gateway_state.json ({type(e).__name__})."]
+    now = datetime.now(timezone.utc)
+    found = []
+    for name in PLATFORMS:
+        state = platforms.get(name)
+        # Entries written by an earlier run (a platform since removed from .env) aren't live.
+        if not state or state.get("state") == "connected" or state.get("writer_pid") != pid:
+            continue
+        if state.get("state") in ("connecting", "retrying"):
+            since = state.get("retrying_since") or state.get("updated_at")
+            try:
+                if since and now - datetime.fromisoformat(since) < RECONNECT_GRACE:
+                    continue
+            except ValueError:
+                pass
+        reason = f": {state['error_message']}" if state.get("error_message") else ""
+        found.append(f"The bot isn't connected to {name} ({state.get('state')}){reason}")
+    return found
 
 
 def model_problem():
@@ -77,6 +108,8 @@ def problems():
     found = []
     if not running():
         found.append(f"The {CONTAINER} container is not running.")
+    else:
+        found += platform_problems()
     if problem := model_problem():
         found.append(problem)
     try:

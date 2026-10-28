@@ -157,10 +157,18 @@ READ_SCHEMA = {
 # code. A domain matches itself and its subdomains; GitHub, Discord, X and Telegram are limited to
 # the listed paths.
 LINK_DOMAINS = {
-    "nearhackathon.com", "near.org", "near.ai", "near-intents.org", "nearbuilders.org",
+    "nearhackathon.com", "near.org", "near.ai", "near-intents.org", "nearbuilders.org", "near.com",
     "agentsonintents.com", "chaindefuser.com",
     "aurora.dev", "hot-labs.org", "hotdao.ai", "rhea.finance", "meme.cooking", "hex.exchange",
-    "svrn.net", "trezu.org", "outlayer.ai", "gomining.com",
+    "svrn.net", "trezu.org", "outlayer.ai", "gomining.com", "hot-labs.gitbook.io",
+    # From the rules' Q&A: the testnet faucet.
+    "near-faucet.io",
+    # Linked throughout the NEAR docs: protocol spec, node docs, NEAR's GitHub Pages, the default
+    # RPC, the explorer.
+    "nomicon.io", "near-nodes.io", "near.github.io", "near-examples.github.io", "nearbuilders.github.io",
+    "fastnear.com", "nearblocks.io",
+    # In the docs' code: the Rust installer, SVG namespaces, and the reader's own machine.
+    "rustup.rs", "rust-lang.org", "w3.org", "localhost", "127.0.0.1",
 }
 # Matched whole: x.com/NEARProtocol and x.com/NEARProtocol/status/1 pass, x.com/NEARProtocolSupport
 # (the classic impersonation account) doesn't.
@@ -168,20 +176,28 @@ LINK_PATHS = tuple(p.lower() for p in (
     "github.com/near", "github.com/NEAR-Intents-Agent-API", "github.com/NEAR-DevHub",
     "github.com/near-daos", "github.com/aurora-is-near", "github.com/hot-dao", "github.com/rhea-finance",
     "github.com/nearai", "github.com/out-layer",
-    "discord.gg/nearprotocol", "x.com/NEARProtocol", "x.com/SputnikDAO", "t.me/nearbuilderschat",
-    "t.me/NearHackathonBot",
+    # From the NEAR docs: examples, NEAR Intents contracts, NEAR One, the legacy org, near-kit.
+    "github.com/near-examples", "github.com/defuse-protocol", "github.com/Near-One", "github.com/nearprotocol",
+    "github.com/NEARBuilders", "github.com/r-near",
+    "discord.gg/nearprotocol", "x.com/NEARProtocol", "twitter.com/NEARProtocol",
+    "x.com/SputnikDAO", "t.me/nearbuilderschat", "t.me/NearHackathonBot", "t.me/neardev", "t.me/near_intents",
 ))
 # Full URLs, www. links, and bare domains: Telegram makes "scam.xyz" clickable too.
 # A leading path is part of the name: Telegram links lib.rs inside src/lib.rs.
 _LINK = re.compile(r"(?:https?://|www\.)[^\s<>()\[\]]+|(?<![\w@.-])(?:[\w-]+/)*(?:[a-z0-9-]+\.)+[a-z]{2,24}\b(?:/[^\s<>()\[\]]*)?", re.I)
 # Checked against Telegram: it doesn't link these endings, so team.near or Cargo.toml stay plain text.
-_NEVER_LINKED = {"near", "testnet", "toml", "txt", "json", "js", "ts", "wasm", "yaml", "yml"}
+# environ: LiteLLM's os.environ/KEY, in the NEAR AI docs' config examples.
+_NEVER_LINKED = {"near", "testnet", "toml", "txt", "json", "js", "ts", "wasm", "yaml", "yml", "environ"}
 # Telegram does link these (real country domains), so HACKATHON.md or user.tg would point at
 # hackathon.md or user.tg. They're usually file names or HOT accounts, so show them as code:
 # readable, not clickable. A bare scam on one of them (claim-near.sh) ends up unclickable too.
 _SHOWN_AS_CODE = {"md", "sh", "py", "rs", "tg"}
-# Telegram doesn't link anything inside code, so the filter leaves code spans alone.
+# Neither Telegram nor Discord links anything inside code, so bare names there (claim-near.sh, src/lib.rs)
+# stay as they are. Links in code are still filtered, with or without https:// (a domain followed by a
+# path): tested on Discord, asked to repeat a scam link, the bot wrote it in backticks, ready to copy.
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
+_URL_IN_CODE = re.compile(
+    r"(?:https?://|www\.)[^\s<>()\[\]`'\"]+|(?<![\w@./-])(?:[a-z0-9-]+\.)+[a-z]{2,24}/[^\s<>()\[\]`'\"]*", re.I)
 
 
 def _link_allowed(link):
@@ -193,16 +209,29 @@ def _link_allowed(link):
     return any(path == p or path.startswith(p + "/") for p in LINK_PATHS)
 
 
+def _bare_ending(link):
+    """The ending of a name written without https:// or www. (claim-near.xyz/x: xyz), else None."""
+    if "://" in link or link.lower().startswith("www."):
+        return None
+    return next(part for part in link.split("/") if "." in part).rsplit(".", 1)[-1].lower()
+
+
 def _filter_link(m):
     link = m.group(0)
     if _link_allowed(link.rstrip(".,;:!?'\"")):
         return link
-    if "://" not in link and not link.lower().startswith("www."):
-        ending = next(part for part in link.split("/") if "." in part).rsplit(".", 1)[-1].lower()
-        if ending in _NEVER_LINKED:
-            return link
-        if ending in _SHOWN_AS_CODE:
-            return f"`{link}`"
+    ending = _bare_ending(link)
+    if ending in _NEVER_LINKED:
+        return link
+    if ending in _SHOWN_AS_CODE:
+        return f"`{link}`"
+    return "(link removed)"
+
+
+def _filter_url_in_code(m):
+    url = m.group(0)
+    if _link_allowed(url.rstrip(".,;:!?'\"")) or _bare_ending(url) in _NEVER_LINKED:
+        return url
     return "(link removed)"
 
 
@@ -210,7 +239,8 @@ def filter_links(response_text, **kwargs):
     """transform_llm_output hook: make every link outside the allowlist unclickable; None leaves the reply as is."""
     pieces, last = [], 0
     for code in _CODE.finditer(response_text):
-        pieces += [_LINK.sub(_filter_link, response_text[last:code.start()]), code.group(0)]
+        pieces += [_LINK.sub(_filter_link, response_text[last:code.start()]),
+                   _URL_IN_CODE.sub(_filter_url_in_code, code.group(0))]
         last = code.end()
     pieces.append(_LINK.sub(_filter_link, response_text[last:]))
     filtered = "".join(pieces)

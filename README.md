@@ -1,9 +1,9 @@
 # NearHackathonBot
 
-A community-run Telegram bot ([@NearHackathonBot](https://t.me/NearHackathonBot)) that answers questions
-about [NEAR Hackathon](https://nearhackathon.com) (1–14 Nov 2026): rules, dates, tracks, prizes and
-submitting, plus how to build on NEAR, answered from the official docs. It isn't run by the
-organizers and says so. See [SCOPE.md](SCOPE.md) for the product scope.
+A Telegram and Discord bot ([@NearHackathonBot](https://t.me/NearHackathonBot)) that answers questions
+about [NEAR Hackathon](https://nearhackathon.com) (Nov 1–14, 2026): rules, dates, tracks, prizes and
+submitting, plus how to build on NEAR, answered from the official docs. It's run by
+NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
 
 ## How it works
 
@@ -21,30 +21,43 @@ organizers and says so. See [SCOPE.md](SCOPE.md) for the product scope.
   NEAR's sites, the official community links and partner sites) survive; any other link, with or
   without `https://`, becomes "(link removed)". Names Telegram would turn into links but are usually
   file names or accounts (`HACKATHON.md`, `src/lib.rs`, `user.tg`) are shown as code instead: readable,
-  not clickable. In tests the bot wrote planted scam links into its own warnings, and Telegram makes
-  those clickable.
+  not clickable. Full links inside code are filtered too, since code is easy to copy. In tests the bot
+  wrote planted scam links into its own warnings, and Telegram makes those clickable.
 - **In groups** it answers only when mentioned or replied to (Telegram privacy mode on, not an admin).
   Anyone can add it to a group (BotFather's Allow Groups is on), so teams can use it in their own chats.
   Each person has their own conversation; memory across conversations is off.
+- **Rate limit:** [`data/plugins/rate-limit`](data/plugins/rate-limit) drops a person's questions past
+  10 in 10 minutes, with one notice, before they reach the model, so no one can use up the NEAR AI
+  credits. Commands don't count; counts reset when the bot restarts.
+- **On Discord** it's in the NEAR Discord and a test server only (`DISCORD_GUILD_IDS`): [`data/plugins/discord-server`](data/plugins/discord-server)
+  makes it leave any other server it's added to. There it answers in any channel it can see, only when
+  mentioned or replied to, in place (no threads), and in DMs. Other people's channel messages never go
+  into someone's conversation.
 - **Commands:** users can run `/new`, `/start`, `/help` and `/whoami`. Everything else is refused.
-  `/start`, `/help` and the `/` menu get plain text from [`data/plugins/welcome`](data/plugins/welcome).
+  Discord's `/` menu has only `/new` and `/help` ([`data/plugins/welcome`](data/plugins/welcome)).
 
 ## Layout
 
 ```
 data/                 the bot: synced to the server's Hermes home (/opt/data in the container)
-  config.yaml         model, lockdown, Telegram settings
+  config.yaml         model, lockdown, Telegram and Discord settings
   SOUL.md             instructions and hackathon knowledge
   plugins/near-docs/  the read-only docs tools and the link filter
-  plugins/welcome/    the /start greeting, /help text and / menu descriptions
+  plugins/welcome/    Telegram's /start and /help, Discord's /new and /help
+  plugins/discord-server/  keeps the Discord bot in its own servers
+  plugins/rate-limit/ a cap on questions per person
+  plugins/prompt-trim/ removes Hermes' own prompt blocks that config.yaml can't switch off
 sources/              live rules and homepage text that SOUL.md is built from (baseline for the check)
 deploy.sh             push data/, ops/ and sources/ to the server and restart the bot
 ops/check.py          hourly: is the bot running, can it reach its model, do the rules still match sources/?
 ops/sources.py        fetches the rules in a stable, comparable form
 ops/test.sh           ask the bot questions using the local data/, safely (see Testing)
 ops/test-questions.txt  the default test questions
+ops/eval.py           ask the cases in ops/eval-cases.txt several times each and check every answer
+ops/eval-cases.txt    the cases and their checks: regression (blocks deploys) and capability
 ops/teardown.sh       end of event: delete everything the bot stored on the server
-tests/                checks for the security boundary: what the docs tools may fetch, which links survive
+tests/                checks for the security boundary: what the docs tools may fetch, which links survive,
+                      which Discord servers the bot stays in, how many questions a person can ask
 SCOPE.md              product scope
 ```
 
@@ -57,21 +70,50 @@ through `hcloud server ip hack-bot`, so you need the `hcloud` CLI with access to
 Secrets live only on the server, in `/opt/hack-bot/data/.env` (readable by the bot's user only). They
 are never in this repo and the scripts never copy them:
 
-| Key | What |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | from @BotFather |
-| `TELEGRAM_ALLOW_ALL_USERS` | `true`: anyone can talk to it |
-| `NEARAI_API_KEY` | NEAR AI Cloud key for this bot only |
-| `TELEGRAM_HOME_CHANNEL` | the maintainer's Telegram user ID: alerts and Hermes notices go there |
+| Key                        | What                                                                  |
+| -------------------------- | --------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`       | from @BotFather                                                       |
+| `TELEGRAM_ALLOW_ALL_USERS` | `true`: anyone can talk to it                                         |
+| `NEARAI_API_KEY`           | NEAR AI Cloud key for this bot only                                   |
+| `TELEGRAM_HOME_CHANNEL`    | the maintainer's Telegram user ID: alerts and Hermes notices go there |
+| `DISCORD_BOT_TOKEN`        | from the Discord Developer Portal (see Discord setup)                 |
+| `DISCORD_ALLOW_ALL_USERS`  | `true`: anyone in the server can talk to it                           |
+| `DISCORD_GUILD_IDS`        | the Discord servers it stays in, comma-separated (NEAR's, test)       |
+| `DISCORD_HOME_CHANNEL`     | a private channel in one of them: Hermes notices go there             |
 
 Hermes adds `API_SERVER_KEY` itself on first start. To edit the file, SSH in and keep it
 newline-terminated.
 
+## Discord setup
+
+Once, in the [Discord Developer Portal](https://discord.com/developers/applications):
+
+1. **New Application**, named like the bot. On **Bot**: **Reset Token** and put it in `.env` as
+   `DISCORD_BOT_TOKEN`; turn on **Message Content Intent** (it can't read questions without it).
+   Leave the other privileged intents off.
+2. On **Installation**: untick **User Install** (a user-installed bot runs its commands in any server,
+   past the server lock), keep **Guild Install**, set **Install Link** to None.
+3. Before the bot joins any server, put the servers' IDs in `.env` as `DISCORD_GUILD_IDS`,
+   comma-separated (Developer Mode on in Discord's settings, then right-click each server, **Copy Server
+   ID**), add `DISCORD_ALLOW_ALL_USERS=true`, and `./deploy.sh`. The bot leaves any server not listed, and
+   `deploy.sh` refuses to start with a Discord token but no server IDs.
+4. Add it to the servers with this link, using the **Application ID** from **General Information**. It
+   asks only for View Channels, Send Messages, Send Messages in Threads, Read Message History and Add
+   Reactions:
+   `https://discord.com/oauth2/authorize?client_id=<application id>&scope=bot+applications.commands&permissions=274877975616&integration_type=0`
+   Adding it needs Manage Server in the NEAR Discord, so send the link to its admins.
+5. Make a private channel in one of them that the bot can see and post in, and put its ID (right-click it,
+   **Copy Channel ID**) in `.env` as `DISCORD_HOME_CHANNEL`. Without one, Hermes tells every new
+   conversation to run `/sethome`.
+
+Admins can limit it to some channels with the server's own channel permissions.
+
 ## Deploying
 
 ```bash
-./deploy.sh            # push changes and restart; waits until the bot is connected to Telegram
+./deploy.sh            # push changes and restart; waits until the bot is connected to Telegram (and Discord)
 ./deploy.sh --reset    # same, and start every conversation fresh
+./deploy.sh --no-eval  # skip the regression cases (emergencies only)
 ```
 
 Hermes freezes `SOUL.md` into a conversation when it starts, and Telegram conversations never end,
@@ -83,18 +125,28 @@ restart are kept and answered afterwards.
 ```bash
 ops/test.sh                                   # the questions in ops/test-questions.txt
 ops/test.sh "when is the deadline?" "..."     # your own
+ops/eval.py                                   # every case in ops/eval-cases.txt, 3 runs each
+ops/eval.py --model Qwen/Qwen3.6-35B-A3B-FP8  # the same cases on another NEAR AI model
 ```
 
-Before deploying a change to the plugin, also run `python3 -m unittest discover tests`: it checks which
-URLs the docs tools may fetch and which links survive in replies, with no network needed.
+`deploy.sh` first runs the regression cases in `ops/eval-cases.txt`: questions where a wrong answer would
+mislead or harm someone (dates, rules, scam links, seed phrases). Each is asked 3 times, since answers vary
+between runs, and the deploy stops unless every run passes. Capability cases are known weak spots,
+reported but never blocking. `ops/eval.py` saves every answer to a file: read them, not just the score.
+When a real conversation goes wrong, add it as a case.
+
+Before deploying a change to a plugin, also run `python3 -m unittest discover tests`: it checks which
+URLs the docs tools may fetch, which links survive in replies, the Discord server lock and the rate
+limit, with no network needed.
 
 `ops/test.sh` uses your local `data/`, so you can try changes before deploying. It runs in a throwaway container
-on the server that gets only `NEARAI_API_KEY`. Never start a test container with the Telegram token:
-it would poll Telegram and fight the live bot for messages.
+on the server that gets only `NEARAI_API_KEY`. Never start a test container with the Telegram or Discord
+token: it would connect as the bot and fight the live one for messages.
 
 ## When the rules change
 
-`ops/check.py` runs hourly and messages the home channel when the bot is down, when a tiny test call to
+`ops/check.py` runs hourly and messages the home channel when the bot is down or not connected to Telegram
+or Discord, when a tiny test call to
 its model fails or comes back from a different model or outside a TEE (a dead key, exhausted credits, a
 retired model ID), or when the live rules differ from `sources/` (with a diff). For a rule change:
 
@@ -107,9 +159,10 @@ change from a chat message.
 
 ## When something goes wrong
 
-- **Stop the bot now:** `ssh root@$(hcloud server ip hack-bot) docker stop hack-bot`. Or revoke its token
-  in @BotFather (`/revoke`), which also locks out anyone who has a copy.
-- **A token or key leaked:** revoke it (BotFather, or the NEAR AI Cloud dashboard), put the new one in
+- **Stop the bot now:** `ssh root@$(hcloud server ip hack-bot) docker stop hack-bot`. Or revoke its tokens
+  in @BotFather (`/revoke`) and the Discord Developer Portal (**Reset Token**), which also locks out anyone
+  who has a copy.
+- **A token or key leaked:** revoke it (BotFather, Discord Developer Portal, or the NEAR AI Cloud dashboard), put the new one in
   `/opt/hack-bot/data/.env`, then `./deploy.sh`.
 - **Someone pasted a seed phrase or other secret:** `./deploy.sh --reset`, then delete the matching lines from
   `/opt/hack-bot/data/logs/`.
@@ -119,9 +172,12 @@ change from a chat message.
   `curl -s "https://api.telegram.org/bot<token>/leaveChat?chat_id=<chat id>"`. To stop all new
   groups, turn off Allow Groups in @BotFather.
 - **Alert: NEAR AI call failed:** top up the account's credits, or replace the key in `.env` and `./deploy.sh`.
-- **Alert: answered with a different model:** the model ID was retired. Pick a current model that's
-  `owned_by: nearai` from `https://cloud-api.near.ai/v1/models`, set it as `model.default` in
-  `data/config.yaml`, then `ops/test.sh` and `./deploy.sh --reset`.
+- **Alert: answered with a different model, or no longer signed inside a TEE:** the model ID was retired or
+  moved. Pick another of NEAR AI's own models that runs inside the TEE (today `Qwen/Qwen3.6-35B-A3B-FP8`;
+  listed models such as Kimi or DeepSeek are signed by the gateway, not a TEE), set it as `model.default`
+  in `data/config.yaml`, then `ops/eval.py` and `./deploy.sh --reset`.
+- **Alert: not connected to telegram or discord:** check that platform's token in `.env` (and on Discord,
+  the Message Content Intent in the Developer Portal), then `./deploy.sh`.
 - **The bot posts something wrong:** fix `data/SOUL.md`, `ops/test.sh`, then `./deploy.sh --reset`.
 
 ## After the event
