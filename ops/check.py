@@ -5,7 +5,8 @@ running dry (a separate message, ready to forward to whoever runs it)?
 Alerts go to TELEGRAM_HOME_CHANNEL (in data/.env: the maintainer's private chat) through the bot's
 own token. The same alert is not sent twice in a row; once everything matches again, the next
 problem alerts afresh. Until HACKATHON.md matches again, data/rules-changed tells the bot to read the
-live rules before answering. A maintainer updates data/SOUL.md and sources/, then runs
+live rules before answering. A maintainer updates data/SOUL.md (and PHASES in the near-docs plugin, if
+the dates moved) and sources/, then runs
 `deploy.sh --reset` so every conversation picks up the new rules.
 
   python3 check.py            check and alert
@@ -177,22 +178,26 @@ def problems():
                                              f"bot copy/{name}", f"live/{name}", n=1, lineterm=""))
             shown = "\n".join(diff[:MAX_DIFF_LINES])
             more = f"\n… {len(diff) - MAX_DIFF_LINES} more lines" if len(diff) > MAX_DIFF_LINES else ""
-            found.append(f"{name} changed. Update SOUL.md and sources/, then deploy with --reset.\n{shown}{more}")
+            found.append(f"{name} changed. Update SOUL.md (and PHASES in the near-docs plugin if dates moved) and sources/, then deploy with --reset.\n{shown}{more}")
     return found, changed
 
 
 def send(text, dry_run):
+    """Raises OSError, with the text, if it couldn't be sent."""
     if dry_run:
         print(text)
         return
-    values = env(BASE / "data" / ".env")
-    token, chat = values.get("TELEGRAM_BOT_TOKEN"), values.get("TELEGRAM_HOME_CHANNEL")
-    if not token or not chat:
-        sys.exit("TELEGRAM_BOT_TOKEN or TELEGRAM_HOME_CHANNEL missing from data/.env; alert not sent:\n" + text)
-    body = urllib.parse.urlencode({"chat_id": chat, "text": text[:4000]}).encode()
-    with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", body, timeout=30) as r:
-        if not json.load(r).get("ok"):
-            sys.exit("Telegram refused the alert")
+    try:
+        values = env(BASE / "data" / ".env")
+        token, chat = values.get("TELEGRAM_BOT_TOKEN"), values.get("TELEGRAM_HOME_CHANNEL")
+        if not token or not chat:
+            raise OSError("TELEGRAM_BOT_TOKEN or TELEGRAM_HOME_CHANNEL missing from data/.env")
+        body = urllib.parse.urlencode({"chat_id": chat, "text": text[:4000]}).encode()
+        with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", body, timeout=30) as r:
+            if not json.load(r).get("ok"):
+                raise OSError("Telegram refused it")
+    except (OSError, ValueError) as e:
+        raise OSError(f"not sent ({e}):\n{text}") from e
 
 
 def send_faucet(dry_run):
@@ -228,18 +233,27 @@ def main():
                 print(f"could not set {RULES_CHANGED}: {e.strerror}", file=sys.stderr)
         else:
             RULES_CHANGED.unlink(missing_ok=True)
+    # An alert that couldn't be sent isn't recorded as sent, so the next hourly run tries again.
+    unsent = []
     if not found:
         STATE.unlink(missing_ok=True)
     else:
         text = f"⚠️ {CONTAINER}\n\n" + "\n\n".join(found)
         digest = hashlib.sha256(text.encode()).hexdigest()
         if dry_run or not STATE.exists() or STATE.read_text() != digest:
-            send(text, dry_run)
-            if not dry_run:
-                STATE.parent.mkdir(parents=True, exist_ok=True)
-                STATE.write_text(digest)
-    # Last: send() exits on a Telegram error, which mustn't cost the health alert or the rules flag.
-    send_faucet(dry_run)
+            try:
+                send(text, dry_run)
+                if not dry_run:
+                    STATE.parent.mkdir(parents=True, exist_ok=True)
+                    STATE.write_text(digest)
+            except OSError as e:
+                unsent.append(str(e))
+    try:
+        send_faucet(dry_run)
+    except OSError as e:
+        unsent.append(str(e))
+    if unsent:
+        sys.exit("\n\n".join(unsent))
 
 
 if __name__ == "__main__":

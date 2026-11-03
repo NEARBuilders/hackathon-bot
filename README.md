@@ -58,6 +58,7 @@ ops/review.py         daily: a TEE model flags the last day's bad answers, sent 
 ops/faucet_alert.py   link to the faucet plugin; deployed as root's own copy for check.py
 ops/fresh_start.py    deploy.sh --reset: every conversation starts fresh, as /new does
 ops/test.sh           ask the bot questions using the local data/, safely (see Testing)
+ops/fake_date/        test only: lets ops/test.sh ask as if it were another date
 ops/test-questions.txt  the default test questions
 ops/eval.py           ask the cases in ops/eval-cases.txt several times each and check every answer
 ops/eval-cases.txt    the cases and their checks: regression (blocks deploys) and capability
@@ -140,6 +141,7 @@ ops/test.sh                                   # the questions in ops/test-questi
 ops/test.sh "when is the deadline?" "..."     # your own
 ops/eval.py                                   # every case in ops/eval-cases.txt, 3 runs each
 ops/eval.py --model Qwen/Qwen3.6-35B-A3B-FP8  # the same cases on another NEAR AI model
+FAKE_DATE=2026-11-19T12:00 ops/test.sh "..."  # as if it were then (UTC)
 ```
 
 `deploy.sh` first runs the regression cases in `ops/eval-cases.txt`: questions where a wrong answer would
@@ -153,7 +155,11 @@ URLs the docs tools may fetch, which links survive in replies, the Discord serve
 limit, with no network needed.
 
 `ops/test.sh` uses your local `data/`, so you can try changes before deploying. It runs in a throwaway container
-on the server that gets only `NEARAI_API_KEY`. Never start a test container with the Telegram or Discord
+on the server that gets only `NEARAI_API_KEY`. Each run has its own folder (`/opt/hack-bot/tests/`) and container
+(`hack-bot-test-...`), so runs can overlap; both are removed when the run ends, is interrupted, or loses its
+connection (within about a minute). Answers that depend on the date (is judging on? are results out?) are tested
+with `FAKE_DATE`, which shifts the clock inside the test container; a case in `ops/eval-cases.txt` gets one with
+a `date:` line. Never start a test container with the Telegram or Discord
 token: it would connect as the bot and fight the live one for messages.
 
 ## When the rules change

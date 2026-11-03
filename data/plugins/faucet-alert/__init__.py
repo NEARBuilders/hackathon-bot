@@ -8,12 +8,15 @@ Users notice first, and someone has to ask whoever runs it for a top-up. This pl
   it, so it takes no arguments (nothing a user writes reaches the DM) and sends at most one DM per
   COOLDOWN; reports in between are counted into the next one.
 - a pre_llm_call note while the account can't pay a single claim, so the bot sends people to the other
-  faucet instead of one that will fail.
+  faucet instead of one that will fail. Only on messages about test funds: appended to a message that was
+  just a mention, it read as the user reporting the faucet, and the bot answered that and called
+  report_faucet_down.
 
 ops/check.py uses spendable() and forward_text() for its hourly low-balance alert.
 """
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -101,9 +104,16 @@ EMPTY_NOTE = (
 )
 
 
-def empty_faucet_note(**kwargs):
-    """pre_llm_call hook: the note while the account can't pay one claim. Says nothing if RPC fails."""
+# Messages where the faucet could come up: asking for test funds, or saying a faucet fails.
+_ABOUT_FUNDS = re.compile(r"faucet|testnet|test (near|funds|tokens|usdt|usdc)", re.I)
+
+
+def empty_faucet_note(user_message=None, **kwargs):
+    """pre_llm_call hook: the note while the account can't pay one claim, on messages about test funds.
+    Says nothing if RPC fails."""
     global _cached
+    if not isinstance(user_message, str) or not _ABOUT_FUNDS.search(user_message):
+        return None
     now = time.monotonic()
     if _cached[0] is None or now - _cached[0] >= NOTE_CACHE:
         try:

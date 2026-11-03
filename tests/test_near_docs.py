@@ -17,17 +17,39 @@ _spec.loader.exec_module(nd)
 
 
 class ContextNote(unittest.TestCase):
-    """Every turn carries today's UTC date; while ops/check.py's flag file exists, also the note to read
-    the live rules."""
+    """Every turn carries today's UTC date and where the hackathon stands; while ops/check.py's flag file
+    exists, also the note to read the live rules."""
 
     def test_today_every_turn(self):
+        """Only facts, the date and the phase: SOUL.md says to go by them. An instruction here sat in the
+        user's message and was sometimes taken for an injection."""
         class Clock(datetime):
             @classmethod
             def now(cls, tz=None):
                 return datetime(2026, 11, 15, 0, 30, tzinfo=timezone.utc)
 
-        with mock.patch.object(nd, "datetime", Clock):
-            self.assertIn("Sunday, 15 November 2026 (UTC)", nd.context_note()["context"])
+        with tempfile.TemporaryDirectory() as home, mock.patch.object(nd, "datetime", Clock), \
+                mock.patch.object(nd, "RULES_CHANGED", str(Path(home) / "rules-changed")):
+            self.assertEqual(nd.context_note()["context"],
+                             "Today is Sunday, 15 November 2026 (UTC). Submissions are closed; judging starts 16 Nov.")
+
+    def test_phase_by_day(self):
+        """Each boundary, by UTC day: the deadline is 14 Nov 23:59, so 14 Nov is still open."""
+        cases = {(10, 31): "aren't open yet", (11, 1): "Submissions are open", (11, 14): "Submissions are open",
+                 (11, 15): "Submissions are closed", (11, 16): "Judging is under way",
+                 (11, 18): "Judging is under way", (11, 19): "Judging is over", (12, 1): "Judging is over"}
+        for (month, day), expected in cases.items():
+            with self.subTest(month=month, day=day):
+                self.assertIn(expected, nd.phase(datetime(2026, month, day).date()))
+
+    def test_says_when_there_is_no_question(self):
+        for message in ("", "  ", "@NearHackathonBot", "@NearHackathonBot @NearBuildersBot ", "<@1234567890> ", "<@!1234567890>",
+                        "(The user sent a message with no text content)"):
+            with self.subTest(message=message):
+                self.assertIn(nd.NO_QUESTION, nd.context_note(user_message=message)["context"])
+        for message in ("@NearHackathonBot when is the deadline?", "hi", None, [{"type": "image"}]):
+            with self.subTest(message=message):
+                self.assertNotIn(nd.NO_QUESTION, nd.context_note(user_message=message)["context"])
 
     def test_rules_note_only_while_flagged(self):
         with tempfile.TemporaryDirectory() as home:
@@ -84,6 +106,9 @@ class LinkFilter(unittest.TestCase):
         "POST https://1click.chaindefuser.com/v0/quote",
         "Skill: https://github.com/near/agent-skills/tree/main/skills/near-ai-cloud",
         "[skill](https://github.com/NEAR-Intents-Agent-API/skills)",
+        "Agent API docs: https://docs.agentsonintents.com/integration/agent-api/overview",
+        "naa_ key: https://partners.demo.agentsonintents.com/dashboard",
+        "Bold: **https://nearhackathon.com** and italic: _https://docs.near.org_",
         "Discord: https://discord.gg/nearprotocol and X: https://x.com/nearprotocol",
         "Status: https://x.com/NEARProtocol/status/123 and https://github.com/near",
         "Bare official: nearhackathon.com and docs.near.org",
@@ -105,6 +130,7 @@ class LinkFilter(unittest.TestCase):
         "Scam: https://near-hackathon-submit.xyz/form",
         "Other site: https://evil.com/login",
         "Lookalike suffix: https://evilnear.org/x",
+        "Bold scam: **https://evil.com**",
         "Bare scam: near-airdrop.io is not official",
         "Bare scam with path: claim at near-airdrop.io/claim now",
         "Lookalike: https://nearhackathon.com.evil.xyz/apply",

@@ -9,6 +9,8 @@ regression case passes only if every run passes. deploy.sh runs the regression c
   ops/eval.py --only regression                  what deploy.sh runs
   ops/eval.py --model Qwen/Qwen3.6-35B-A3B-FP8   the same cases on another NEAR AI model
 
+A case with a date is asked as if it were then (ops/test.sh's FAKE_DATE), in a test.sh run of its own.
+
 Exits 1 if a regression case failed. Every answer is saved to a file to read, not just counted.
 """
 import argparse
@@ -25,18 +27,20 @@ EXCERPT = 160
 
 
 def load_cases(path):
-    """[{"kind", "q", "must": [regex], "not": [regex], "max": int|None}] from the cases file."""
+    """[{"kind", "q", "must": [regex], "not": [regex], "max": int|None, "date": str|None}] from the cases file."""
     cases, kind, case = [], None, None
     for line in path.read_text().splitlines() + [""]:
         if line.startswith("## "):
             kind = line[3:].strip()
         elif line.startswith("Q: "):
-            case = {"kind": kind, "q": line[3:].strip(), "must": [], "not": [], "max": None}
+            case = {"kind": kind, "q": line[3:].strip(), "must": [], "not": [], "max": None, "date": None}
             cases.append(case)
-        elif case and line.startswith(("must: ", "not: ", "max: ")):
+        elif case and line.startswith(("must: ", "not: ", "max: ", "date: ")):
             key, value = line.split(": ", 1)
             if key == "max":
                 case["max"] = int(value)
+            elif key == "date":
+                case["date"] = value.strip()
             else:
                 case[key].append(re.compile(value.strip(), re.I | re.M))
         elif not line.strip():
@@ -52,9 +56,13 @@ def problems(case, answer):
     return found
 
 
-def ask(questions, model):
+def when(case):
+    return f"[on {case['date']}] " if case["date"] else ""
+
+
+def ask(questions, model, date=None):
     """Answers in order, via ops/test.sh. Each question is one line, so test.sh's echo of it is exact."""
-    env = dict(os.environ, MODEL=model or "")
+    env = dict(os.environ, MODEL=model or "", FAKE_DATE=date or "")
     out = subprocess.run([str(OPS / "test.sh"), *questions], env=env, capture_output=True, text=True).stdout
     blocks = re.split(r"^=== .*$", out, flags=re.M)[1:]
     if len(blocks) != len(questions):
@@ -73,7 +81,11 @@ def main():
     cases = [c for c in load_cases(args.cases) if not args.only or c["kind"] == args.only]
     asked = [c for _ in range(args.runs) for c in cases]
     start = time.time()
-    answers = ask([c["q"] for c in asked], args.model)
+    answers = [None] * len(asked)
+    for date in dict.fromkeys(c["date"] for c in asked):  # one test.sh run per date
+        idx = [i for i, c in enumerate(asked) if c["date"] == date]
+        for i, a in zip(idx, ask([asked[i]["q"] for i in idx], args.model, date)):
+            answers[i] = a
     elapsed = time.time() - start
 
     label = args.model or "data/config.yaml model"
@@ -87,11 +99,11 @@ def main():
             for case in group:
                 runs = [(a, problems(case, a)) for c, a in zip(asked, answers) if c is case]
                 for i, (a, p) in enumerate(runs, 1):
-                    out.write(f"=== [{kind}] run {i} {'PASS' if not p else 'FAIL: ' + '; '.join(p)}\n{case['q']}\n---\n{a}\n\n")
+                    out.write(f"=== [{kind}] run {i} {'PASS' if not p else 'FAIL: ' + '; '.join(p)}\n{when(case)}{case['q']}\n---\n{a}\n\n")
                 ok = sum(not p for _, p in runs)
                 passed += ok == len(runs)
                 if ok < len(runs):
-                    print(f"  {ok}/{len(runs)}  {case['q'][:70]}")
+                    print(f"  {ok}/{len(runs)}  {when(case)}{case['q'][:70]}")
                     for a, p in runs:
                         if p:
                             print(f"        {'; '.join(p)}\n        > {a[:EXCERPT].replace(chr(10), ' ')}")

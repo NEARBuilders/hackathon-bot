@@ -93,19 +93,29 @@ class Spendable(unittest.TestCase):
 
 
 class EmptyFaucetNote(unittest.TestCase):
-    """The bot stops sending people to near-faucet.io only while it can't pay one claim."""
+    """The bot stops sending people to near-faucet.io only while it can't pay one claim, and only says so
+    when the message is about test funds."""
 
     def setUp(self):
         fa._cached = (None, None)
 
-    def note(self, balance):
+    def note(self, balance, message="where can I get testnet NEAR?"):
         fa._cached = (None, None)
         with mock.patch.object(fa, "spendable", balance if callable(balance) else lambda timeout: balance):
-            return fa.empty_faucet_note()
+            return fa.empty_faucet_note(user_message=message)
 
     def test_note_only_when_empty(self):
         self.assertIn("out of funds", self.note(1.5)["context"])
         self.assertIsNone(self.note(10.3))
+
+    def test_only_on_messages_about_test_funds(self):
+        for message in ("near-faucet.io keeps erroring", "how do I get test NEAR?", "is there a Testnet faucet?"):
+            with self.subTest(message=message):
+                self.assertIsNotNone(self.note(1.5, message))
+        # A bare mention arrives as an empty or near-empty message: the note alone read as a faucet report.
+        for message in ("", "@NearHackathonBot", "what are the tracks?", None, [{"type": "image"}]):
+            with self.subTest(message=message):
+                self.assertIsNone(self.note(1.5, message))
 
     def test_rpc_failure_adds_nothing(self):
         def fail(timeout):

@@ -1,6 +1,7 @@
 # Cases for ops/eval.py. Each case is a question, then checks on the bot's answer:
 #   must: a regex the answer has to match       not: a regex it must not match
 #   max:  the most characters the answer may be
+#   date: ask it as if it were then (YYYY-MM-DDTHH:MM, UTC), for answers that depend on today's date
 # Regexes are case-insensitive. Cases are separated by blank lines.
 #
 # must: only for facts the answer needs (a date, an amount, a name, a link), never for wording;
@@ -132,6 +133,53 @@ Q: where can I see the projects people are building?
 must: nearhackathon\.com/#projects
 not: no (public )?(gallery|directory|list)
 
+# NEAR Intents' two APIs: the Agent API's naa_ key comes from its own dashboard, 1Click's from
+# partners.near-intents.org. The official docs only cover 1Click, so the bot used to mix them up.
+Q: I'm building on the NEAR Intents Agent API for the hackathon. My partner dashboard at partners.near-intents.org only offers 1Click, Explorer and circuit-breaker keys. Could you enable Agent API access so I can create a naa_ key?
+must: partners\.demo\.agentsonintents\.com
+not: faucet
+
+Q: how do I get an API key for the NEAR Intents Agent API?
+must: partners\.demo\.agentsonintents\.com
+
+Q: what base URL do I call the Agent API at with my naa_ key from the demo dashboard?
+must: api\.demo\.agentsonintents\.com
+
+Q: where do I get a 1Click API key?
+must: partners\.near-intents\.org
+not: agentsonintents
+
+# From the daily review of 3 Nov.
+# A bare mention: the notes appended to it read as the message. The faucet note was taken for a faucet
+# report (and the bot DMed the maintainer), the date for news ("Thanks for the update").
+Q: @NearHackathonBot
+not: faucet|maintainer|thanks for (the )?(update|note|info)|matches what I have|^\W*got it\b
+
+# #apply is the form, not a place to check a submission (daily review, 3 Nov).
+Q: how can I check the status of my application?
+not: (details|rules|status|check)\W[^\n]{0,30}nearhackathon\.com/#apply
+
+# The live page matching the bot's copy doesn't mean nothing changed since 19 Oct.
+Q: have the rules changed since 19 October?
+must: \b(yes|updated|added)\b
+not: ^\W*no\b|no (material |major )?changes
+
+# After the deadline: the phase by today's date, and no claim to know the results.
+Q: are the results out?
+date: 2026-11-19T12:00
+must: nearhackathon\.com|x\.com/NEARProtocol|@NEARProtocol
+not: judging (is|'s) (still )?(underway|under way|ongoing|in progress)|results (are|were) (out|announced|posted)\b(?! by)|announced (tonight|today|tomorrow)|^\W*no\b
+
+Q: is judging still going on?
+date: 2026-11-19T12:00
+must: \b(over|ended|finished|ran|concluded)\b
+not: judging (is|'s) (still )?(underway|under way|ongoing|in progress|happening)|announced (tonight|today|tomorrow)
+
+Q: has judging started?
+date: 2026-11-17T12:00
+must: 18 Nov|Nov(ember)? 18|2026-11-18
+not: ^\W*no\b|(hasn.?t|has not|not yet) (started|begun)|results (are|were) (out|announced|posted)\b(?! by)|judging (is|has) (over|ended|finished)
+
 ## capability
 
 Q: [Replying to: "The rules don't say whether work started before 1 Nov can be used. They ask teams to build the project during the hackathon (1-14 Nov). For a definite answer, ask in the NEAR Discord or the NEAR Builders Telegram chat."] so can I start coding now or not?
@@ -165,6 +213,28 @@ must: docs\.market\.near\.ai/list-your-agent
 
 Q: the Discord invite link is expired, where else can I ask?
 must: t\.me/nearbuilderschat
+
+# Broad questions run past the 500-character limit (daily review, 3 Nov).
+Q: what are the tracks?
+max: 500
+
+Q: tell me everything about the hackathon
+max: 600
+
+# Most answers point to the public projects list; about 1 in 9 just says there's no status view.
+Q: how can I check the status of my application?
+must: nearhackathon\.com/#projects
+
+# The Agent API facts aren't in the hackathon rules, but about 1 answer in 8 says "per the rules": the bot
+# calls all its knowledge rules. Down from 1 in 2 once they got their own section, worded as facts.
+Q: I'm building on the NEAR Intents Agent API for the hackathon. My partner dashboard at partners.near-intents.org only offers 1Click, Explorer and circuit-breaker keys. Could you enable Agent API access so I can create a naa_ key?
+not: (per|according to) the rules|the rules (say|cover|explain|may|already|state)
+
+# On 19 Nov it always says submissions are closed, but about 1 answer in 7 used to add that judging is
+# underway. 0 of 8 since each message states where the hackathon stands; kept here until that holds.
+Q: can I still submit my project?
+date: 2026-11-19T12:00
+not: judging (is|'s) (now |still )?(underway|under way|ongoing|in progress)|results (are|were) (out|announced|posted)\b(?! by)
 
 Q: near-faucet.io keeps erroring, what's wrong with it?
 must: docs\.near\.org/getting-started/faucet|near-cli

@@ -11,7 +11,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from urllib.parse import urlsplit
 
 SITES = {
@@ -204,6 +204,11 @@ _URL_IN_CODE = re.compile(
     r"(?:https?://|www\.)[^\s<>()\[\]`'\"]+|(?<![\w@./-])(?:[a-z0-9-]+\.)+[a-z]{2,24}/[^\s<>()\[\]`'\"]*", re.I)
 
 
+# Trailing punctuation and markdown emphasis aren't part of a link: **https://nearhackathon.com** was
+# read as the host nearhackathon.com** and removed.
+_TRAILING = ".,;:!?'\"*_~"
+
+
 def _link_allowed(link):
     parts = urlsplit(link if "://" in link else "https://" + link)
     host = (parts.hostname or "").lower()
@@ -222,7 +227,7 @@ def _bare_ending(link):
 
 def _filter_link(m):
     link = m.group(0)
-    if _link_allowed(link.rstrip(".,;:!?'\"")):
+    if _link_allowed(link.rstrip(_TRAILING)):
         return link
     ending = _bare_ending(link)
     if ending in _NEVER_LINKED:
@@ -234,7 +239,7 @@ def _filter_link(m):
 
 def _filter_url_in_code(m):
     url = m.group(0)
-    if _link_allowed(url.rstrip(".,;:!?'\"")) or _bare_ending(url) in _NEVER_LINKED:
+    if _link_allowed(url.rstrip(_TRAILING)) or _bare_ending(url) in _NEVER_LINKED:
         return url
     return "(link removed)"
 
@@ -261,13 +266,40 @@ RULES_CHANGED_NOTE = (
 )
 
 
-def context_note(**kwargs):
-    """pre_llm_call hook, appended to the user's message: today's date, and the note above while the bot's
-    copy of the rules is stale. Hermes keeps a conversation's system prompt as it was on its first message,
-    and the only date there is the day it started, so without this someone who first asked on 3 Nov was
-    told on 15 Nov that submissions were still open."""
-    notes = [f"Today is {datetime.now(timezone.utc):%A, %d %B %Y} (UTC). Go by this date, not the date "
-             "the conversation started."]
+# Where the hackathon stands on each UTC day, from SOUL.md's DATES: update both together. Stated as a fact
+# each turn because, left to work it out from the date, the bot told 1 in 4 people asking on 19 Nov that
+# judging was still going on.
+PHASES = (  # (first day, where things stand from then on)
+    (date(2026, 11, 1), "Submissions are open until 14 Nov 2026, 23:59 UTC."),
+    (date(2026, 11, 15), "Submissions are closed; judging starts 16 Nov."),
+    (date(2026, 11, 16), "Judging is under way; results are due by 18 Nov 2026, 23:59 UTC."),
+    (date(2026, 11, 19), "Judging is over; results should be out."),
+)
+BEFORE = "The hackathon starts 1 Nov 2026; submissions aren't open yet."
+
+
+def phase(day):
+    return next((text for start, text in reversed(PHASES) if day >= start), BEFORE)
+
+
+# A message that is only mentions (or nothing): the notes below were then all the model saw, and it answered
+# them ("Thanks for the update"), or guessed a faucet report and called report_faucet_down. Telegram keeps
+# the @name; Discord strips the bot's own <@id>, leaves others, and sends an empty message as a placeholder.
+_ONLY_MENTIONS = re.compile(r"\s*((@\w+|<@!?\d+>)\s*)*|\(The user sent a message with no text content\)")
+NO_QUESTION = "The message has no question in it, only a mention of you."
+
+
+def context_note(user_message=None, **kwargs):
+    """pre_llm_call hook, appended to the user's message: today's date and where the hackathon stands, and
+    the note above while the bot's copy of the rules is stale. Hermes keeps a conversation's system prompt
+    as it was on its first message, and the only date there is the day it started, so without this someone
+    who first asked on 3 Nov was told on 15 Nov that submissions were still open. Both are bare facts:
+    SOUL.md says to go by them. Worded as an instruction here, inside the user's message, the date was
+    sometimes taken for an injection."""
+    now = datetime.now(timezone.utc)
+    notes = [f"Today is {now:%A, %d %B %Y} (UTC). {phase(now.date())}"]
+    if isinstance(user_message, str) and _ONLY_MENTIONS.fullmatch(user_message):
+        notes.insert(0, NO_QUESTION)
     if os.path.exists(RULES_CHANGED):
         notes.append(RULES_CHANGED_NOTE)
     return {"context": "\n".join(notes)}

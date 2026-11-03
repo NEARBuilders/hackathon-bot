@@ -15,8 +15,9 @@ FRESH=none
 EVAL=1
 for arg in "$@"; do
   case "$arg" in
-    --reset) FRESH=reset ;;
-    --purge) FRESH=purge ;;
+    --reset|--purge)
+      [ $FRESH = none ] || { echo "use one of --reset and --purge" >&2; exit 2; }
+      FRESH=${arg#--} ;;
     --no-eval) EVAL=0 ;;
     *) echo "usage: $0 [--reset | --purge] [--no-eval]" >&2; exit 2 ;;
   esac
@@ -60,6 +61,8 @@ ssh "$HOST" "rsync -a --chown=$HERMES_UID:$HERMES_UID --exclude .env $BASE/incom
 rsync -a --delete --copy-links --exclude __pycache__ "$DIR/ops/" "$HOST:$BASE/ops/"
 rsync -a --delete "$DIR/sources/" "$HOST:$BASE/sources/"
 SINCE="$(date -u '+%Y-%m-%d %H:%M:%S')"
+# Exit 3: the bot was started, but --reset failed. Reported once the bot is confirmed up, below.
+started=0
 ssh "$HOST" "
   set -e
   test -s $BASE/data/.env || { echo 'missing $BASE/data/.env'; exit 1; }
@@ -73,10 +76,11 @@ ssh "$HOST" "
   # Longer than agent.restart_drain_timeout (60) in config.yaml, so answers in progress can finish.
   docker stop -t 75 $NAME >/dev/null 2>&1 || true
   docker rm $NAME >/dev/null 2>&1 || true
+  fresh=ok
   if [ $FRESH = reset ] && [ -f $BASE/data/state.db ]; then
     docker run --rm -v $BASE/data:/opt/data -e HERMES_HOME=/opt/data -v $BASE/ops/fresh_start.py:/fresh_start.py:ro \
       $IMAGE /opt/hermes/.venv/bin/python /fresh_start.py 2>&1 | grep 'conversations start fresh' \
-      || echo 'fresh start FAILED: conversations unchanged; starting the bot anyway'
+      || { echo 'fresh start FAILED: conversations unchanged; starting the bot anyway'; fresh=failed; }
   elif [ $FRESH = purge ]; then
     rm -rf $BASE/data/state.db $BASE/data/state.db-wal $BASE/data/state.db-shm $BASE/data/sessions
     echo 'conversations deleted'
@@ -87,7 +91,9 @@ ssh "$HOST" "
     -e DISCORD_COMMAND_SYNC_POLICY=off \
     -v $BASE/data:/opt/data \
     $IMAGE gateway run
-"
+  [ \$fresh = ok ] || exit 3
+" || started=$?
+[ $started = 0 ] || [ $started = 3 ] || exit $started
 
 # Don't report success until the new container is actually talking to Telegram, and to Discord
 # once data/.env has a Discord token.
@@ -105,3 +111,7 @@ for platform in $platforms; do
   exit 1
 done
 WAIT
+if [ $started = 3 ]; then
+  echo "the bot is up, but --reset failed: open conversations still have the old SOUL.md; run ./deploy.sh --reset again" >&2
+  exit 1
+fi

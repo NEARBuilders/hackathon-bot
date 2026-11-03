@@ -10,8 +10,9 @@ NAME=hack-bot
 ssh "root@$(hcloud server ip "$NAME")" "
   set -e
   docker rm -f $NAME >/dev/null 2>&1 || true
+  docker ps -aq --filter name=^$NAME-test- | xargs -r docker rm -f >/dev/null
   rm -f /etc/cron.d/$NAME /var/log/$NAME-check.log /var/log/$NAME-review.log
   rm -rf /opt/$NAME
-  echo 'removed container, hourly check, daily review and /opt/$NAME'
+  echo 'removed containers, hourly check, daily review and /opt/$NAME'
 "
 echo "To delete the server too: hcloud server delete $NAME && hcloud firewall delete $NAME"
