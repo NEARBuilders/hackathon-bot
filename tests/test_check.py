@@ -21,7 +21,7 @@ class Check(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         home = Path(tmp.name)
         self.sent, self.refuse = [], False
-        self.found, self.changed, self.faucet = [], set(), None
+        self.found, self.changed, self.faucet, self.crash = [], set(), None, None
 
         def send(text, dry_run):
             if self.refuse:
@@ -30,11 +30,16 @@ class Check(unittest.TestCase):
 
         for name, value in (("STATE", home / "state" / "last-alert"), ("FAUCET_LEVEL", home / "state" / "faucet-level"),
                             ("RULES_CHANGED", home / "rules-changed"), ("send", send),
-                            ("problems", lambda: (list(self.found), self.changed)),
+                            ("problems", self.problems),
                             ("faucet_alert", lambda: self.faucet)):
             patcher = mock.patch.object(check, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
+
+    def problems(self):
+        if self.crash:
+            raise self.crash
+        return list(self.found), self.changed
 
     def run_check(self):
         with mock.patch.object(check.sys, "argv", ["check.py"]):
@@ -74,6 +79,17 @@ class Check(unittest.TestCase):
         self.changed = {"homepage.txt"}  # only the bot's copy of HACKATHON.md matters
         self.run_check()
         self.assertFalse(check.RULES_CHANGED.exists())
+
+    def test_a_crash_alerts_once_and_keeps_the_rules_flag(self):
+        self.changed = {"HACKATHON.md"}
+        self.run_check()
+        self.crash = AttributeError("'NoneType' object has no attribute 'group'")
+        with mock.patch("traceback.print_exc"):
+            self.run_check()
+            self.run_check()
+        self.assertEqual(len(self.sent), 1)
+        self.assertIn("hourly check itself failed (AttributeError", self.sent[0])
+        self.assertTrue(check.RULES_CHANGED.exists())
 
     def test_failed_send_keeps_the_rest_and_retries(self):
         self.found, self.changed, self.faucet = ["The hack-bot container is not running."], {"HACKATHON.md"}, (10, "faucet under 10")

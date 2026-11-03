@@ -20,6 +20,7 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -222,7 +223,13 @@ def send_faucet(dry_run):
 
 def main():
     dry_run = "--dry-run" in sys.argv[1:]
-    found, changed = problems()
+    # This is the only monitor: a bug or a surprise in it must alert like any problem, not end in a
+    # traceback in the cron log. changed=None leaves the rules flag as it is.
+    try:
+        found, changed = problems()
+    except Exception as e:
+        traceback.print_exc()
+        found, changed = [f"The hourly check itself failed ({type(e).__name__}: {e}); see /var/log/{CONTAINER}-check.log."], None
     # Only HACKATHON.md: it's the one rules page the bot can read.
     if changed is not None and not dry_run:
         if "HACKATHON.md" in changed:

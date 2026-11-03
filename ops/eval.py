@@ -63,10 +63,11 @@ def when(case):
 def ask(questions, model, date=None):
     """Answers in order, via ops/test.sh. Each question is one line, so test.sh's echo of it is exact."""
     env = dict(os.environ, MODEL=model or "", FAKE_DATE=date or "")
-    out = subprocess.run([str(OPS / "test.sh"), *questions], env=env, capture_output=True, text=True).stdout
-    blocks = re.split(r"^=== .*$", out, flags=re.M)[1:]
+    run = subprocess.run([str(OPS / "test.sh"), *questions], env=env, capture_output=True, text=True)
+    blocks = re.split(r"^=== .*$", run.stdout, flags=re.M)[1:]
     if len(blocks) != len(questions):
-        sys.exit(f"expected {len(questions)} answers, got {len(blocks)}; ops/test.sh output ends:\n{out[-2000:]}")
+        sys.exit(f"expected {len(questions)} answers, got {len(blocks)}; ops/test.sh exited {run.returncode}, "
+                 f"its output ends:\n{run.stdout[-2000:]}\n{run.stderr[-2000:]}")
     return ["\n".join(l for l in b.splitlines() if l.strip()) for b in blocks]
 
 

@@ -1,5 +1,6 @@
-"""Read-only NEAR docs for a public bot, plus a filter on links in its replies, plus a note on every turn
-with today's date and, while they differ from the bot's copy, a note to read the live rules.
+"""Read-only NEAR docs for a public bot, plus a filter on links in its replies, plus a note on every turn:
+today's date and where the hackathon stands, that a message is only a mention when it is, and, while the
+live rules differ from the bot's copy, to read them.
 
 Strangers can steer the model, so the tools allow exactly this and nothing else:
 GET over HTTPS to four fixed hosts, Markdown pages or llms.txt only, no query strings (nothing from
