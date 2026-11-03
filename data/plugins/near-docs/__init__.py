@@ -1,4 +1,5 @@
-"""Read-only NEAR docs for a public bot (the only tools it has), plus a filter on links in its replies.
+"""Read-only NEAR docs for a public bot, plus a filter on links in its replies, plus a note to read the
+live rules while they differ from the bot's copy.
 
 Strangers can steer the model, so the tools allow exactly this and nothing else:
 GET over HTTPS to four fixed hosts, Markdown pages or llms.txt only, no query strings (nothing from
@@ -6,6 +7,7 @@ the conversation can ride along in a URL), redirects only within those hosts, te
 size-capped. Page text is returned as reference data, never as instructions.
 """
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -160,7 +162,7 @@ LINK_DOMAINS = {
     "nearhackathon.com", "near.org", "near.ai", "near-intents.org", "nearbuilders.org", "near.com",
     "agentsonintents.com", "chaindefuser.com",
     "aurora.dev", "hot-labs.org", "hotdao.ai", "rhea.finance", "meme.cooking", "hex.exchange",
-    "svrn.net", "trezu.org", "outlayer.ai", "gomining.com", "hot-labs.gitbook.io",
+    "svrn.net", "trezu.org", "outlayer.ai", "gomining.com", "hot-labs.gitbook.io", "gulf-labs.com",
     # From the rules' Q&A: the testnet faucet.
     "near-faucet.io",
     # Linked throughout the NEAR docs: protocol spec, node docs, NEAR's GitHub Pages, the default
@@ -180,7 +182,8 @@ LINK_PATHS = tuple(p.lower() for p in (
     "github.com/near-examples", "github.com/defuse-protocol", "github.com/Near-One", "github.com/nearprotocol",
     "github.com/NEARBuilders", "github.com/r-near",
     "discord.gg/nearprotocol", "x.com/NEARProtocol", "twitter.com/NEARProtocol",
-    "x.com/SputnikDAO", "t.me/nearbuilderschat", "t.me/NearHackathonBot", "t.me/neardev", "t.me/near_intents",
+    "x.com/SputnikDAO", "youtube.com/channel/UCq0iWZQuXhvP8yQzDZsmWfQ",  # NEAR DevHub
+    "t.me/nearbuilderschat", "t.me/NearHackathonBot", "t.me/neardev", "t.me/near_intents",
 ))
 # Full URLs, www. links, and bare domains: Telegram makes "scam.xyz" clickable too.
 # A leading path is part of the name: Telegram links lib.rs inside src/lib.rs.
@@ -247,7 +250,23 @@ def filter_links(response_text, **kwargs):
     return filtered if filtered != response_text else None
 
 
+# ops/check.py creates this while the live HACKATHON.md differs from the copy SOUL.md was built from,
+# and removes it once they match (after a deploy with the updated copy).
+RULES_CHANGED = os.path.join(os.environ.get("HERMES_HOME", "/opt/data"), "rules-changed")
+RULES_CHANGED_NOTE = (
+    "Note: the live rules at https://nearhackathon.com/HACKATHON.md changed after your HACKATHON KNOWLEDGE "
+    "was written. Before answering about rules, dates, prizes, tracks, partners or submitting, read that "
+    "page with read_near_docs; where it differs, answer from the page."
+)
+
+
+def rules_changed_note(**kwargs):
+    """pre_llm_call hook: appended to the user's message while the bot's copy of the rules is stale."""
+    return {"context": RULES_CHANGED_NOTE} if os.path.exists(RULES_CHANGED) else None
+
+
 def register(ctx):
     ctx.register_tool(name="search_near_docs", toolset="near_docs", schema=SEARCH_SCHEMA, handler=search_near_docs)
     ctx.register_tool(name="read_near_docs", toolset="near_docs", schema=READ_SCHEMA, handler=read_near_docs)
     ctx.register_hook("transform_llm_output", filter_links)
+    ctx.register_hook("pre_llm_call", rules_changed_note)

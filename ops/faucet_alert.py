@@ -1,0 +1,1 @@
+../data/plugins/faucet-alert/__init__.py

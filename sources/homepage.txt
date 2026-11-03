@@ -9,6 +9,7 @@ NEAR Hackathon home
 HCKTHN
 Tracks
 Timeline
+Projects
 Judges
 Ecosystem
 Toolkit
@@ -116,6 +117,7 @@ TRADING
 NEAR INTENTS
 CHAIN SIGNATURES
 Build in this track
+AI prompt
 [
 02
 /
@@ -130,6 +132,7 @@ ONCHAIN DATA
 DASHBOARDS
 RESEARCH
 Build in this track
+AI prompt
 [
 03
 /
@@ -144,6 +147,7 @@ PRIVATE AI
 TEE
 NEAR AI CLOUD
 Build in this track
+AI prompt
 [
 04
 /
@@ -158,6 +162,7 @@ AI AGENTS
 NEAR INTENTS
 CHAIN SIGNATURES
 Build in this track
+AI prompt
 [
 05
 /
@@ -172,6 +177,7 @@ MULTI-AGENT SYSTEMS
 NEAR INTENTS
 SUB-ACCOUNTS
 Build in this track
+AI prompt
 [
 06
 /
@@ -186,6 +192,7 @@ AGENT SECURITY
 FUNCTION CALL KEYS
 TEE ATTESTATION
 Build in this track
+AI prompt
 [
 07
 /
@@ -200,6 +207,7 @@ AGENT COMMERCE
 NEAR INTENTS
 CHAIN SIGNATURES
 Build in this track
+AI prompt
 [
 08
 /
@@ -214,6 +222,7 @@ STABLECOINS
 NEAR INTENTS
 META TRANSACTIONS
 Build in this track
+AI prompt
 [
 09
 /
@@ -229,6 +238,7 @@ SOCIAL LOGIN
 NEAR INTENTS
 NEP-245
 Build in this track
+AI prompt
 [
 10
 /
@@ -243,6 +253,7 @@ DYNAMIC NFTS
 NEP-171
 SUB-ACCOUNTS
 Build in this track
+AI prompt
 [
 11
 /
@@ -257,6 +268,7 @@ MEMECOINS
 TOKEN MECHANICS
 NEP-141
 Build in this track
+AI prompt
 [
 12
 /
@@ -271,6 +283,7 @@ SPUTNIK DAO
 TREZU
 NAMED ACCOUNTS
 Build in this track
+AI prompt
 [
 13
 /
@@ -285,6 +298,7 @@ EXPERIMENTAL
 CHAIN ABSTRACTION
 BUILD YOUR OWN
 Build in this track
+AI prompt
 02 / EXECUTION PLAN
 IDEA
 >
@@ -301,10 +315,36 @@ Build
 Turn your idea into a working prototype. Test the assumptions that matter.
 03
 Show it
-Publish your repository and post your demo on X, with a video or screenshots of what you built.
+Publish your repository and post your demo on X — tag @NEARProtocol and #NEARHackathon — with a video or screenshots of what you built.
 04
 Submit
 Send the form with both links: your repository and your demo post.
+THE BUILD LOG / PROJECT DIRECTORY
+EXPLORE
+THE BUILDS.
+Explore the projects taking shape on NEAR. Open the code. See the demo.
+>_
+submissions.list
+PUBLIC SUBMISSIONS
+Search projects by name
+TRACK
+All tracks
+Unstoppable DeFi
+Investment Thesis
+Privacy & Private AI
+Autonomous Business
+AI Swarms
+AI Security & Defense
+Agent Economy
+Real-World Money
+Games With Real Economies
+NFTs That Do Something
+Memecoins With Mechanics
+Social Money
+Open Innovation
+Loading the build log...
+LOADING...
+IDEAS IN. BUILDS OUT.
 03 / THE PEOPLE
 MEET THE
 JUDGES
@@ -434,11 +474,29 @@ Website
 Docs
 Git
 — not available
+Agent Market
+Marketplace for AI agents
+Website
+Docs
+API
+NEAR Builders
+Builder community
+Website
+Docs
+Git
+Gulf Labs
+Invests in blockchain infrastructure
+Website
+Docs
+— not available
+Git
+— not available
 05 / BUILDER TOOLKIT
 LESS SETUP.
 MORE SHIPPING
 [ START HERE ]
-From your first smart contract to your next big idea. Find the guides and building blocks to make it happen on NEAR.
+From your first smart contract to your next big idea. Find the guides and building blocks to make it happen on NEAR. More ecosystem resources, updated as they land:
+nearbuilders.org/build
 Rather ship than read? Hand
 HACKATHON.md
 to your coding agent. It knows the tracks, the dates and the submission steps, and can file your submission. You just build.
@@ -448,6 +506,8 @@ THE BUILD DOESN’T HAPPEN ALONE
 FIND YOUR
 CO-BUILDERS
 Meet collaborators and ask questions in the NEAR Discord. Follow the hackathon on X for the latest updates.
+Stuck on something? Ask fellow builders on
+Telegram
 Join the NEAR Discord
 Follow on X
 06 / FINAL SUBMISSION
@@ -463,7 +523,12 @@ Publish the repository. Judges can’t open a private one
 03
 Post your demo on X: say you built it at
 NEAR HACKATHON
-and attach the demo video or screenshots
+, tag
+@NEARProtocol
+and
+#NEARHackathon
+, and attach the demo video or screenshots. Tips for a good demo post are in
+HACKATHON.md
 04
 Submit the repository link and the link to your demo post. Both are required
 PROJECT SUBMISSION
@@ -520,7 +585,11 @@ START HERE
 Who can take part?
 Developers, designers and people with ideas for the NEAR ecosystem. No wallet connection is needed to submit: you only enter a NEAR account address, and if you win, the prize is sent there.
 Do I need a team already?
-No. Build as a solo builder or with a team — one submission per project, and one person can enter up to 2 different projects, if they are independent and each README names the other one. Looking for teammates? Join the NEAR Discord and find them there.
+No. Build as a solo builder or with a team — one submission per project, and one person can enter up to 2 different projects, if they are independent and each README names the other one. Looking for teammates? Join the
+NEAR Discord
+or the builders chat on
+Telegram
+and find them there.
 When does it happen?
 The hackathon starts 1 Nov 2026 · 00:00 UTC. Development runs for two weeks and ends 14 Nov 2026 · 23:59 UTC, and results are announced by 18 Nov 2026 · 23:59 UTC. The full schedule is in the at-a-glance panel.
 What should we submit?

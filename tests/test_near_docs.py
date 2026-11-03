@@ -4,13 +4,27 @@ replies. No network needed.
   python3 -m unittest discover tests
 """
 import importlib.util
+import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 _PLUGIN = Path(__file__).resolve().parent.parent / "data" / "plugins" / "near-docs" / "__init__.py"
 _spec = importlib.util.spec_from_file_location("near_docs", _PLUGIN)
 nd = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nd)
+
+
+class RulesChangedNote(unittest.TestCase):
+    """While ops/check.py's flag file exists, every turn carries the note to read the live rules."""
+
+    def test_note_only_while_flagged(self):
+        with tempfile.TemporaryDirectory() as home:
+            flag = Path(home) / "rules-changed"
+            with mock.patch.object(nd, "RULES_CHANGED", str(flag)):
+                self.assertIsNone(nd.rules_changed_note())
+                flag.touch()
+                self.assertIn("HACKATHON.md", nd.rules_changed_note()["context"])
 
 
 class FetchAllowlist(unittest.TestCase):

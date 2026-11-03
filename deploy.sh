@@ -3,21 +3,22 @@
 # then (re)start the Hermes container. Secrets live only in data/.env on the server; this script
 # never touches it.
 #
-# --reset  Start every conversation fresh. Hermes freezes SOUL.md into a conversation when it
-#          starts and Telegram conversations never end, so after a rules update existing chats keep
-#          the old facts. This deletes the session database and the sessions/ index it is recovered
-#          from while the bot is stopped; Hermes starts with none.
+# --reset  Start every conversation fresh, as /new does, so it gets the new SOUL.md; the old
+#          transcripts are kept for review (ops/fresh_start.py). Use after every SOUL.md change.
+# --purge  Delete every conversation: the session database and the sessions/ index it is recovered
+#          from. Only for privacy, e.g. someone pasted a seed phrase.
 # --no-eval  Skip the regression cases (ops/eval.py --only regression) that otherwise run first and
 #          stop the deploy if any answer is wrong. For emergencies, like pulling a bad answer fast.
 set -euo pipefail
 
-RESET=0
+FRESH=none
 EVAL=1
 for arg in "$@"; do
   case "$arg" in
-    --reset) RESET=1 ;;
+    --reset) FRESH=reset ;;
+    --purge) FRESH=purge ;;
     --no-eval) EVAL=0 ;;
-    *) echo "usage: $0 [--reset] [--no-eval]" >&2; exit 2 ;;
+    *) echo "usage: $0 [--reset | --purge] [--no-eval]" >&2; exit 2 ;;
   esac
 done
 
@@ -37,7 +38,9 @@ fi
 ssh "$HOST" "mkdir -p $BASE/data $BASE/incoming"
 rsync -a --delete --exclude .env --exclude __pycache__ "$DIR/data/" "$HOST:$BASE/incoming/data/"
 ssh "$HOST" "rsync -a --chown=$HERMES_UID:$HERMES_UID --exclude .env $BASE/incoming/data/ $BASE/data/"
-rsync -a --delete --exclude __pycache__ "$DIR/ops/" "$HOST:$BASE/ops/"
+# --copy-links: ops/faucet_alert.py links to the faucet plugin; check.py runs it as root, so it gets its
+# own copy here, out of reach of the bot's container (which can write data/).
+rsync -a --delete --copy-links --exclude __pycache__ "$DIR/ops/" "$HOST:$BASE/ops/"
 rsync -a --delete "$DIR/sources/" "$HOST:$BASE/sources/"
 SINCE="$(date -u '+%Y-%m-%d %H:%M:%S')"
 ssh "$HOST" "
@@ -49,9 +52,14 @@ ssh "$HOST" "
   fi
   echo '17 * * * * root /usr/bin/python3 $BASE/ops/check.py >> /var/log/$NAME-check.log 2>&1' > /etc/cron.d/$NAME
   docker pull -q $IMAGE
-  docker stop -t 30 $NAME >/dev/null 2>&1 || true
+  # Longer than agent.restart_drain_timeout (60) in config.yaml, so answers in progress can finish.
+  docker stop -t 75 $NAME >/dev/null 2>&1 || true
   docker rm $NAME >/dev/null 2>&1 || true
-  if [ $RESET = 1 ]; then
+  if [ $FRESH = reset ] && [ -f $BASE/data/state.db ]; then
+    docker run --rm -v $BASE/data:/opt/data -e HERMES_HOME=/opt/data -v $BASE/ops/fresh_start.py:/fresh_start.py:ro \
+      $IMAGE /opt/hermes/.venv/bin/python /fresh_start.py 2>&1 | grep 'conversations start fresh' \
+      || echo 'fresh start FAILED: conversations unchanged; starting the bot anyway'
+  elif [ $FRESH = purge ]; then
     rm -rf $BASE/data/state.db $BASE/data/state.db-wal $BASE/data/state.db-shm $BASE/data/sessions
     echo 'conversations deleted'
   fi

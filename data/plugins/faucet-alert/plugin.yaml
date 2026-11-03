@@ -1,0 +1,5 @@
+name: faucet-alert
+version: 1.0.0
+description: Tells the maintainer in a Telegram DM when users say near-faucet.io is broken (no input from users, one DM per few hours)
+provides_tools:
+  - report_faucet_down

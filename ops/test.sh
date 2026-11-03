@@ -33,8 +33,9 @@ trap 'rm -rf "$T"' EXIT
 grep '^NEARAI_API_KEY=' "$BASE/data/.env" > "$T/data/.env"
 if grep -q TELEGRAM "$T/data/.env"; then echo "refusing: test .env must not contain a Telegram token" >&2; exit 1; fi
 # `hermes -z` runs as the cli platform; give it exactly the Telegram toolset so answers match production.
-sed -i 's/^  telegram: \[near_docs\]$/  telegram: [near_docs]\n  cli: [near_docs]/' "$T/data/config.yaml"
-grep -q '^  cli: \[near_docs\]$' "$T/data/config.yaml" || { echo "could not give the cli platform the Telegram toolset" >&2; exit 1; }
+# Its .env has no Telegram token, so report_faucet_down can't DM the maintainer from a test.
+sed -i 's/^  telegram: \(\[.*\]\)$/  telegram: \1\n  cli: \1/' "$T/data/config.yaml"
+grep -q '^  cli: \[' "$T/data/config.yaml" || { echo "could not give the cli platform the Telegram toolset" >&2; exit 1; }
 # ...and Telegram's formatting note, instead of the terminal's.
 awk '{print} /^platform_hints:$/{p=1} p && /^    replace:/{print "  cli:"; print; p=0}' "$T/data/config.yaml" > "$T/config"
 cat "$T/config" > "$T/data/config.yaml"  # not mv: keeps the file readable inside the container

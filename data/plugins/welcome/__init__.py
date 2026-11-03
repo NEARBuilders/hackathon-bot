@@ -8,6 +8,10 @@ count, like every other command there; a plain /start or /help is for other bots
 On Discord, Hermes' own slash commands are off (slash_commands: false in config.yaml) and so is its
 command sync (DISCORD_COMMAND_SYNC_POLICY=off in deploy.sh): it would race this plugin and publish an
 empty menu. This plugin publishes exactly /new and /help.
+
+It also rewords Hermes' restart notices, which reach anyone mid-answer or writing during a deploy: they
+named Hermes and promised to resume or queue, which a restart doesn't guarantee. And its notice for a
+conversation it suspended, which named the model and offered a /resume users can't run.
 """
 import asyncio
 import logging
@@ -26,6 +30,23 @@ In {where}, mention {me} or reply to one of my messages.
 
 /new – start a fresh conversation
 /help – show this message"""
+
+RESTARTING = "⏳ The bot is restarting for an update. If your answer doesn't arrive, please ask again in a minute."
+
+NOTICES = {
+    "gateway.shutdown.notice_shutdown": RESTARTING,
+    "gateway.shutdown.notice_restart": RESTARTING,
+    "gateway.busy.drain_queued": RESTARTING,
+    "gateway.busy.drain_rejected": RESTARTING,
+    "gateway.busy.drain_rejected_new_work": RESTARTING,
+    # Hermes suspends a conversation stuck across several restarts and says so on its next message,
+    # with a /resume tip and the model, provider and context size. (deploy.sh --reset doesn't
+    # suspend: ops/fresh_start.py resets like /new, silently.)
+    "gateway.session.auto_reset_notice": "New conversation started.",
+    "gateway.session.info_model": "",
+    "gateway.session.info_provider": "",
+    "gateway.session.info_context": "",
+}
 
 MENU = {
     "slash.new.description": "Start a fresh conversation",
@@ -84,4 +105,4 @@ def _discord_handlers(bot, adapter):
 def register(ctx):
     ctx.register_telegram_handler(_telegram_handlers)
     ctx.register_platform_handler("discord", _discord_handlers)
-    ctx.register_locale("en", MENU)
+    ctx.register_locale("en", {**MENU, **NOTICES})

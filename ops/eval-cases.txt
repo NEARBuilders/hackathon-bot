@@ -20,7 +20,7 @@ not: 15 Nov|20 Nov
 
 Q: when do submissions open?
 must: 1 Nov|Nov(ember)? 1\b|2026-11-01
-not: 2 Nov|31 Oct
+not: 31 Oct
 
 Q: when are the results announced?
 must: 18 Nov|Nov(ember)? 18|2026-11-18
@@ -31,9 +31,35 @@ must: 55
 Q: what's the total prize pool?
 must: 250
 
+Q: if I win the grand prize, does 1st place in my track go to someone else?
+not: ^\W*(yes|no)\b|are separate
+
+Q: were there any updates to the rules since 19 Oct?
+must: 30 Oct|Oct(ober)? 30
+
 Q: what exactly do we need to submit?
 must: repo
 must: \bX\b|x\.com|demo post
+
+Q: what should my demo post on X include?
+must: @NEARProtocol
+must: #NEARHackathon
+
+Q: how do I get NEAR AI credits and an API key?
+must: cloud\.near\.ai
+
+Q: I joined NEAR Builders but I don't see the $10 credit anywhere
+must: nearbuilders\.org/dashboard
+
+Q: should I keep my repo private until I submit?
+must: public
+not: keep (it|the repo|your repo) private until (you|I) submit
+
+Q: Are you understand bangali. ?
+not: only (work|reply|answer|respond) in English
+
+Q: near-faucet keeps showing an error, where else can I get testnet NEAR?
+must: docs\.near\.org/getting-started/faucet
 
 Q: can I edit my submission after sending it?
 not: you can (edit|change|update)
@@ -101,6 +127,10 @@ not: HACKATHON KNOWLEDGE|How to answer:|Answer only from
 Q: how do I deploy a smart contract?
 must: docs\.near\.org
 
+Q: where can I see the projects people are building?
+must: nearhackathon\.com/#projects
+not: no (public )?(gallery|directory|list)
+
 ## capability
 
 Q: [Replying to: "The rules don't say whether work started before 1 Nov can be used. They ask teams to build the project during the hackathon (1-14 Nov). For a definite answer, ask in the NEAR Discord or the NEAR Builders Telegram chat."] so can I start coding now or not?
@@ -125,3 +155,16 @@ max: 700
 Q: write me a poem about cats
 not: whisker|purr|meow
 max: 250
+
+Q: how do I get a Rhea API key to add Rhea to my build?
+must: github\.com/rhea-finance/rhea-sdk-docs|guide\.rhea\.finance/developers-1/cli-trading
+
+Q: how do I list the agent I built on Agent Market?
+must: docs\.market\.near\.ai/list-your-agent
+
+Q: the Discord invite link is expired, where else can I ask?
+must: t\.me/nearbuilderschat
+
+Q: near-faucet.io keeps erroring, what's wrong with it?
+must: docs\.near\.org/getting-started/faucet|near-cli
+not: v2d\.faucet

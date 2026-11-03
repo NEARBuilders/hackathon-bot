@@ -13,10 +13,12 @@ NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
   (replies are signed `provider_tee`). Every model call goes there; there is no fallback provider.
 - **Knowledge:** [`data/SOUL.md`](data/SOUL.md) holds the bot's instructions and a copy of the public
   rules. [`sources/`](sources) is the live text that copy was built from.
-- **Tools:** one plugin, [`data/plugins/near-docs`](data/plugins/near-docs), with two read-only tools:
+- **Tools:** [`data/plugins/near-docs`](data/plugins/near-docs) has two read-only tools:
   `search_near_docs` and `read_near_docs`. They fetch only Markdown pages and `llms.txt` from
   docs.near.org, docs.near.ai and docs.near-intents.org, plus `nearhackathon.com/HACKATHON.md`.
-  HTTPS only, no query strings, no redirects off those hosts. All built-in Hermes tools are off.
+  HTTPS only, no query strings, no redirects off those hosts. [`data/plugins/faucet-alert`](data/plugins/faucet-alert)
+  has `report_faucet_down`, which DMs the maintainer when users say near-faucet.io is broken (no input, one DM
+  per 6 hours). All built-in Hermes tools are off.
 - **Link filter:** the same plugin rewrites every reply so only links to an allowlist (the hackathon,
   NEAR's sites, the official community links and partner sites) survive; any other link, with or
   without `https://`, becomes "(link removed)". Names Telegram would turn into links but are usually
@@ -42,15 +44,18 @@ NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
 data/                 the bot: synced to the server's Hermes home (/opt/data in the container)
   config.yaml         model, lockdown, Telegram and Discord settings
   SOUL.md             instructions and hackathon knowledge
-  plugins/near-docs/  the read-only docs tools and the link filter
+  plugins/near-docs/  the read-only docs tools, the link filter, and the stale-rules note
   plugins/welcome/    Telegram's /start and /help, Discord's /new and /help
   plugins/discord-server/  keeps the Discord bot in its own servers
   plugins/rate-limit/ a cap on questions per person
+  plugins/faucet-alert/  tells the maintainer when users say near-faucet.io is broken
   plugins/prompt-trim/ removes Hermes' own prompt blocks that config.yaml can't switch off
 sources/              live rules and homepage text that SOUL.md is built from (baseline for the check)
 deploy.sh             push data/, ops/ and sources/ to the server and restart the bot
-ops/check.py          hourly: is the bot running, can it reach its model, do the rules still match sources/?
+ops/check.py          hourly: is the bot running, can it reach its model, is the faucet low, do the rules still match sources/?
 ops/sources.py        fetches the rules in a stable, comparable form
+ops/faucet_alert.py   link to the faucet plugin; deployed as root's own copy for check.py
+ops/fresh_start.py    deploy.sh --reset: every conversation starts fresh, as /new does
 ops/test.sh           ask the bot questions using the local data/, safely (see Testing)
 ops/test-questions.txt  the default test questions
 ops/eval.py           ask the cases in ops/eval-cases.txt several times each and check every answer
@@ -112,13 +117,16 @@ Admins can limit it to some channels with the server's own channel permissions.
 
 ```bash
 ./deploy.sh            # push changes and restart; waits until the bot is connected to Telegram (and Discord)
-./deploy.sh --reset    # same, and start every conversation fresh
+./deploy.sh --reset    # same, and every conversation starts fresh (as /new does)
+./deploy.sh --purge    # same, and delete every conversation (privacy only)
 ./deploy.sh --no-eval  # skip the regression cases (emergencies only)
 ```
 
-Hermes freezes `SOUL.md` into a conversation when it starts, and Telegram conversations never end,
-so after changing `SOUL.md` use `--reset`. It deletes the existing conversations. Messages sent during a
-restart are kept and answered afterwards.
+Hermes freezes `SOUL.md` into a conversation when it starts, and conversations never end on their own,
+so after changing `SOUL.md` use `--reset`. It starts every conversation fresh, as `/new` does
+([`ops/fresh_start.py`](ops/fresh_start.py)), and keeps the old transcripts, so they can still be reviewed.
+`--purge` deletes them instead. Answers in progress get up to 60 seconds to finish before the restart.
+Telegram messages sent during the restart are answered afterwards; Discord ones are missed.
 
 ## Testing
 
@@ -154,8 +162,11 @@ retired model ID), or when the live rules differ from `sources/` (with a diff). 
 2. Refresh the baseline: `python3 ops/sources.py`
 3. `ops/test.sh`, then `./deploy.sh --reset`.
 
-The bot also reads the live `HACKATHON.md` itself when someone claims a rule changed, and never takes a
-change from a chat message.
+Until then the bot isn't left on the old copy: while the live `HACKATHON.md` differs from `sources/`,
+`check.py` keeps a flag file (`data/rules-changed`) and the near-docs plugin adds a note to every question
+telling the bot to read the live rules before answering about them. The flag clears at the first hourly
+check after the deploy. The bot also reads the live `HACKATHON.md` itself when someone claims a rule
+changed, and never takes a change from a chat message.
 
 ## When something goes wrong
 
@@ -164,7 +175,7 @@ change from a chat message.
   who has a copy.
 - **A token or key leaked:** revoke it (BotFather, Discord Developer Portal, or the NEAR AI Cloud dashboard), put the new one in
   `/opt/hack-bot/data/.env`, then `./deploy.sh`.
-- **Someone pasted a seed phrase or other secret:** `./deploy.sh --reset`, then delete the matching lines from
+- **Someone pasted a seed phrase or other secret:** `./deploy.sh --purge`, then delete the matching lines from
   `/opt/hack-bot/data/logs/`.
 - **The bot is in a group it shouldn't be:** find the chat ID with
   `ssh root@$(hcloud server ip hack-bot) "grep -o 'chat=-[0-9]*' /opt/hack-bot/data/logs/agent.log | sort | uniq -c"`,
@@ -176,6 +187,13 @@ change from a chat message.
   moved. Pick another of NEAR AI's own models that runs inside the TEE (today `Qwen/Qwen3.6-35B-A3B-FP8`;
   listed models such as Kimi or DeepSeek are signed by the gateway, not a TEE), set it as `model.default`
   in `data/config.yaml`, then `ops/eval.py` and `./deploy.sh --reset`.
+- **near-faucet.io is running low, or builders report it erroring:** these come as their own messages, written
+  for whoever runs the faucet: its payout account (`v2d.faucet.nonofficial.testnet`, 2 testnet NEAR per claim),
+  the balance, claims left, and the ask. Forward them to https://t.me/neardev. `check.py` sends one
+  each time what it can pay out drops under 50, 20, 10 or 2 NEAR (its balance minus about 9.6 NEAR of storage
+  reserve it can't send); the bot's `report_faucet_down` tool
+  ([`data/plugins/faucet-alert`](data/plugins/faucet-alert)) sends one when a user says the faucet errors (no
+  input from users, one per 6 hours). While it can't pay a single claim, the bot stops suggesting it.
 - **Alert: not connected to telegram or discord:** check that platform's token in `.env` (and on Discord,
   the Message Content Intent in the Developer Portal), then `./deploy.sh`.
 - **The bot posts something wrong:** fix `data/SOUL.md`, `ops/test.sh`, then `./deploy.sh --reset`.
