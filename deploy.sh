@@ -29,6 +29,23 @@ IMAGE="nousresearch/hermes-agent:v0.22.5@sha256:9c5561579f3ffdf333401797094ac3a7
 HERMES_UID=10000   # the image's hermes user; the running bot must keep owning its files
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# One deploy at a time, from any machine: a lock on the server, taken before the evals so a second
+# deploy stops at once instead of racing this one's sync and restart. Released on exit. A deploy killed
+# outright (kill -9, or cut off from the server) leaves it behind; the refusal says how to clear it.
+LOCK=$BASE/deploy.lock
+rc=0
+owner=$(ssh "$HOST" "mkdir -p $BASE && mkdir $LOCK 2>/dev/null || { cat $LOCK/owner 2>/dev/null; exit 3; }
+  echo '$(whoami)@$(hostname -s), pid $$, since $(date -u '+%Y-%m-%d %H:%M') UTC' > $LOCK/owner") || rc=$?
+if [ $rc = 3 ]; then
+  echo "another deploy is running (${owner:-owner unknown}); not deploying." >&2
+  echo "If it isn't (it was killed), clear the lock: ssh $HOST rm -r $LOCK" >&2
+  exit 1
+elif [ $rc != 0 ]; then
+  echo "couldn't reach the server to take the deploy lock" >&2; exit 1
+fi
+trap 'ssh "$HOST" "rm -r $LOCK" || echo "could not release the deploy lock; clear it: ssh $HOST rm -r $LOCK" >&2' EXIT
+trap 'exit 1' INT TERM HUP
+
 if [ $EVAL = 1 ]; then
   "$DIR/ops/eval.py" --only regression || { echo "regression cases failed; not deploying (--no-eval to skip)" >&2; exit 1; }
 fi
@@ -50,7 +67,8 @@ ssh "$HOST" "
   if grep -q '^DISCORD_BOT_TOKEN=.' $BASE/data/.env && ! grep -q '^DISCORD_GUILD_IDS=.' $BASE/data/.env; then
     echo 'DISCORD_BOT_TOKEN is set but DISCORD_GUILD_IDS is not; set it before deploying'; exit 1
   fi
-  echo '17 * * * * root /usr/bin/python3 $BASE/ops/check.py >> /var/log/$NAME-check.log 2>&1' > /etc/cron.d/$NAME
+  printf '%s\n' '17 * * * * root /usr/bin/python3 $BASE/ops/check.py >> /var/log/$NAME-check.log 2>&1' \
+    '0 8 * * * root /usr/bin/python3 $BASE/ops/review.py >> /var/log/$NAME-review.log 2>&1' > /etc/cron.d/$NAME
   docker pull -q $IMAGE
   # Longer than agent.restart_drain_timeout (60) in config.yaml, so answers in progress can finish.
   docker stop -t 75 $NAME >/dev/null 2>&1 || true

@@ -54,6 +54,7 @@ sources/              live rules and homepage text that SOUL.md is built from (b
 deploy.sh             push data/, ops/ and sources/ to the server and restart the bot
 ops/check.py          hourly: is the bot running, can it reach its model, is the faucet low, do the rules still match sources/?
 ops/sources.py        fetches the rules in a stable, comparable form
+ops/review.py         daily: a TEE model flags the last day's bad answers, sent to the home channel
 ops/faucet_alert.py   link to the faucet plugin; deployed as root's own copy for check.py
 ops/fresh_start.py    deploy.sh --reset: every conversation starts fresh, as /new does
 ops/test.sh           ask the bot questions using the local data/, safely (see Testing)
@@ -128,6 +129,10 @@ so after changing `SOUL.md` use `--reset`. It starts every conversation fresh, a
 `--purge` deletes them instead. Answers in progress get up to 60 seconds to finish before the restart.
 Telegram messages sent during the restart are answered afterwards; Discord ones are missed.
 
+One deploy runs at a time: `deploy.sh` holds a lock on the server (`/opt/hack-bot/deploy.lock`) from before
+the evals until it's done, and a second deploy stops at once, saying who holds it. A deploy killed outright
+leaves the lock behind; once you're sure none is running, clear it with the `rm` the refusal prints.
+
 ## Testing
 
 ```bash
@@ -168,6 +173,21 @@ telling the bot to read the live rules before answering about them. The flag cle
 check after the deploy. The bot also reads the live `HACKATHON.md` itself when someone claims a rule
 changed, and never takes a change from a chat message.
 
+## Daily review
+
+`ops/review.py` runs at 08:00 UTC and sends the home channel a report on the last day's conversations:
+answers that are wrong, invented, outdated or against the bot's instructions; questions its knowledge
+can't answer; and answers users disputed, listed as unverified claims to check, not facts to adopt (a
+dispute is often the first sign the knowledge is stale, and sometimes someone trying to plant a false
+rule). Long reports come in several messages. Fix what it flags as in "The bot posts something wrong" below, and add real failures to
+`ops/eval-cases.txt`. Treat it as a pointer, not a verdict: it's a model reading a model.
+
+Conversations stay inside NEAR AI's TEE, like the bot's own: the reviewer (`REVIEWER`, DeepSeek-V4.1-Flash)
+must reply signed inside a TEE before any conversation is sent, and it gets only platform, chat type and
+message text: no user names, chat names or IDs (the text itself still holds whatever people wrote). To read them yourself: `ssh root@$(hcloud server ip hack-bot) docker exec
+hack-bot /opt/hermes/.venv/bin/hermes sessions export --after 24h -` (JSONL, conversations started in the
+last 24 h; never `--upload`).
+
 ## When something goes wrong
 
 - **Stop the bot now:** `ssh root@$(hcloud server ip hack-bot) docker stop hack-bot`. Or revoke its tokens
@@ -184,9 +204,12 @@ changed, and never takes a change from a chat message.
   groups, turn off Allow Groups in @BotFather.
 - **Alert: NEAR AI call failed:** top up the account's credits, or replace the key in `.env` and `./deploy.sh`.
 - **Alert: answered with a different model, or no longer signed inside a TEE:** the model ID was retired or
-  moved. Pick another of NEAR AI's own models that runs inside the TEE (today `Qwen/Qwen3.6-35B-A3B-FP8`;
-  listed models such as Kimi or DeepSeek are signed by the gateway, not a TEE), set it as `model.default`
-  in `data/config.yaml`, then `ops/eval.py` and `./deploy.sh --reset`.
+  moved. Pick another model whose replies are signed inside the TEE (today `Qwen/Qwen3.6-35B-A3B-FP8`). The
+  test is the signature, `signature_kind: provider_tee`, which `check.py` checks hourly: it goes by model ID, not
+  family (`deepseek-ai/DeepSeek-V4.1-Flash-1017` is in the TEE, `deepseek/deepseek-v4.1-flash-1017` isn't), and
+  `metadata.verifiable` in https://cloud-api.near.ai/v1/model/list isn't enough (on 3 Nov 2026 `z-ai/glm-5.3`,
+  `deepseek/deepseek-v3.2` and `moonshotai/kimi-k2.6` were marked verifiable but signed by the gateway). Set it
+  as `model.default` in `data/config.yaml`, then `ops/eval.py` and `./deploy.sh --reset`.
 - **near-faucet.io is running low, or builders report it erroring:** these come as their own messages, written
   for whoever runs the faucet: its payout account (`v2d.faucet.nonofficial.testnet`, 2 testnet NEAR per claim),
   the balance, claims left, and the ask. Forward them to https://t.me/neardev. `check.py` sends one

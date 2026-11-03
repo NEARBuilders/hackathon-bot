@@ -94,28 +94,45 @@ def platform_problems():
     return found
 
 
-def model_problem():
-    """One tiny call with the bot's own key and model, so a dead key, exhausted credits, a silently
-    rerouted model ID or a reply from outside a TEE alerts here before users notice."""
+def nearai():
+    """(API base URL, request headers) for NEAR AI Cloud, with the bot's own key."""
     config = (BASE / "data" / "config.yaml").read_text()
-    model = re.search(r"^  default: (\S+)", config, re.M).group(1)
     api = re.search(r"^  base_url: (\S+)", config, re.M).group(1).rstrip("/")
     headers = {"Authorization": "Bearer " + env(BASE / "data" / ".env").get("NEARAI_API_KEY", ""),
                "Content-Type": "application/json"}
-    body = json.dumps({"model": model, "max_tokens": 5, "messages": [{"role": "user", "content": "Reply with OK"}]})
+    return api, headers
+
+
+def complete(model, messages, max_tokens, timeout=60):
+    """One chat completion on NEAR AI. Raises urllib.error.HTTPError, OSError or ValueError."""
+    api, headers = nearai()
+    body = json.dumps({"model": model, "max_tokens": max_tokens, "messages": messages})
+    with urllib.request.urlopen(urllib.request.Request(f"{api}/chat/completions", body.encode(), headers), timeout=timeout) as r:
+        return json.load(r)
+
+
+def signature_kind(model, reply):
+    """How NEAR AI signed a reply: "provider_tee" when it ran inside a TEE. Raises OSError, ValueError, KeyError."""
+    api, headers = nearai()
+    query = urllib.parse.urlencode({"model": model, "signing_algo": "ecdsa"})
+    with urllib.request.urlopen(urllib.request.Request(f"{api}/signature/{reply['id']}?{query}", headers=headers), timeout=60) as r:
+        return json.load(r).get("signature_kind")
+
+
+def model_problem():
+    """One tiny call with the bot's own key and model, so a dead key, exhausted credits, a silently
+    rerouted model ID or a reply from outside a TEE alerts here before users notice."""
+    model = re.search(r"^  default: (\S+)", (BASE / "data" / "config.yaml").read_text(), re.M).group(1)
     try:
-        with urllib.request.urlopen(urllib.request.Request(f"{api}/chat/completions", body.encode(), headers), timeout=60) as r:
-            reply = json.load(r)
+        reply = complete(model, [{"role": "user", "content": "Reply with OK"}], 5)
     except urllib.error.HTTPError as e:
         return f"NEAR AI call failed with HTTP {e.code}: the key may be invalid or out of credits."
     except (OSError, ValueError) as e:
         return f"NEAR AI call failed: {type(e).__name__}."
     if reply.get("model") != model:
         return f"NEAR AI answered with {reply.get('model')} instead of {model}: the model ID may be retired and rerouted."
-    query = urllib.parse.urlencode({"model": model, "signing_algo": "ecdsa"})
     try:
-        with urllib.request.urlopen(urllib.request.Request(f"{api}/signature/{reply['id']}?{query}", headers=headers), timeout=60) as r:
-            kind = json.load(r).get("signature_kind")
+        kind = signature_kind(model, reply)
     except (OSError, ValueError, KeyError) as e:
         return f"Couldn't fetch the reply's signature from NEAR AI ({type(e).__name__}); the bot itself may be fine."
     if kind != "provider_tee":
