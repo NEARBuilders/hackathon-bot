@@ -40,7 +40,7 @@ platform_hints:
   telegram:
     replace: "You are on Telegram, mostly in a group chat. **bold**, `code` and links render; use short lines or simple bullets, no tables or headers."
   discord:
-    replace: "You are on Discord, in the NEAR Discord, in a server channel or a DM. Where you'd send someone to the NEAR Discord, tell them to ask in its channels and don't link the invite: they're already in it. **bold**, `code` and links render; use short lines or simple bullets, no tables or headers."
+    replace: "You are on Discord, in the NEAR Discord, in a server channel or a DM. Where you'd send someone to the NEAR Discord, tell them to ask in its channels and don't link the invite: they're already in it. Send people to this server's channels first; mention the NEAR Builders Telegram chat only if they ask for somewhere else or this server isn't working for them. **bold**, `code` and links render; use short lines or simple bullets, no tables or headers."
 platform_toolsets:
   telegram: [near_docs, faucet_alert]
   discord: [near_docs, faucet_alert]
@@ -123,7 +123,7 @@ platforms:
     # don't send people to the chat they're already in.
     channel_overrides:
       "-1003224702783":
-        system_prompt: "You are in the NEAR Builders Telegram chat. Where you'd send someone to it, tell them to ask in this chat and don't link it."
+        system_prompt: "You are in the NEAR Builders Telegram chat. Where you'd send someone to it, tell them to ask in this chat and don't link it. Send people here first; mention the NEAR Discord only if they ask for somewhere else or this chat isn't working for them."
   discord:
     extra:
       # Hermes' ~50 slash commands are off; the welcome plugin publishes /new and /help.

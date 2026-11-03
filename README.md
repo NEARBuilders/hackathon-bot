@@ -44,7 +44,7 @@ NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
 data/                 the bot: synced to the server's Hermes home (/opt/data in the container)
   config.yaml         model, lockdown, Telegram and Discord settings
   SOUL.md             instructions and hackathon knowledge
-  plugins/near-docs/  the read-only docs tools, the link filter, and the stale-rules note
+  plugins/near-docs/  the read-only docs tools, the link filter, and each turn's note: today's date, stale rules
   plugins/welcome/    Telegram's /start and /help, Discord's /new and /help
   plugins/discord-server/  keeps the Discord bot in its own servers
   plugins/rate-limit/ a cap on questions per person

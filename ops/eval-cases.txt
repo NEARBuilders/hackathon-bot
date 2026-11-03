@@ -35,7 +35,8 @@ Q: if I win the grand prize, does 1st place in my track go to someone else?
 not: ^\W*(yes|no)\b|are separate
 
 Q: were there any updates to the rules since 19 Oct?
-must: 30 Oct|Oct(ober)? 30
+must: @NEARProtocol|#NEARHackathon|example prompt|Gulf Labs|Agent Market|Rhea|projects? directory
+not: nothing (has )?changed|no (changes|updates) since|изменений[^.]{0,40}нет
 
 Q: what exactly do we need to submit?
 must: repo

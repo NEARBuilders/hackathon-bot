@@ -6,6 +6,7 @@ replies. No network needed.
 import importlib.util
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from unittest import mock
 from pathlib import Path
 
@@ -15,16 +16,26 @@ nd = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nd)
 
 
-class RulesChangedNote(unittest.TestCase):
-    """While ops/check.py's flag file exists, every turn carries the note to read the live rules."""
+class ContextNote(unittest.TestCase):
+    """Every turn carries today's UTC date; while ops/check.py's flag file exists, also the note to read
+    the live rules."""
 
-    def test_note_only_while_flagged(self):
+    def test_today_every_turn(self):
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2026, 11, 15, 0, 30, tzinfo=timezone.utc)
+
+        with mock.patch.object(nd, "datetime", Clock):
+            self.assertIn("Sunday, 15 November 2026 (UTC)", nd.context_note()["context"])
+
+    def test_rules_note_only_while_flagged(self):
         with tempfile.TemporaryDirectory() as home:
             flag = Path(home) / "rules-changed"
             with mock.patch.object(nd, "RULES_CHANGED", str(flag)):
-                self.assertIsNone(nd.rules_changed_note())
+                self.assertNotIn("HACKATHON.md", nd.context_note()["context"])
                 flag.touch()
-                self.assertIn("HACKATHON.md", nd.rules_changed_note()["context"])
+                self.assertIn("HACKATHON.md", nd.context_note()["context"])
 
 
 class FetchAllowlist(unittest.TestCase):
@@ -106,6 +117,11 @@ class LinkFilter(unittest.TestCase):
         "Lookalike invite: https://discord.gg/nearprotocolfree",
         "Lookalike org: https://github.com/hot-daoscam/drainer",
         "Lookalike org: https://github.com/nearscam/x",
+        # The bot's own warnings about lookalikes of the hackathon's domain must stay warnings: never
+        # "fixed" into the real domain, which would call the real site a scam.
+        "No, https://nearhackaton.com isn't official. The only official site is https://nearhackathon.com.",
+        "Careful: nearhackathon.co is a lookalike, not the hackathon's site.",
+        "Don't use nearhackathom.com/claim, it's a scam.",
     ]
 
     # Telegram links these endings (real country domains); shown as code they stay readable but unclickable.

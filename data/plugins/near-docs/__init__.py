@@ -1,5 +1,5 @@
-"""Read-only NEAR docs for a public bot, plus a filter on links in its replies, plus a note to read the
-live rules while they differ from the bot's copy.
+"""Read-only NEAR docs for a public bot, plus a filter on links in its replies, plus a note on every turn
+with today's date and, while they differ from the bot's copy, a note to read the live rules.
 
 Strangers can steer the model, so the tools allow exactly this and nothing else:
 GET over HTTPS to four fixed hosts, Markdown pages or llms.txt only, no query strings (nothing from
@@ -11,6 +11,7 @@ import os
 import re
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 SITES = {
@@ -260,13 +261,20 @@ RULES_CHANGED_NOTE = (
 )
 
 
-def rules_changed_note(**kwargs):
-    """pre_llm_call hook: appended to the user's message while the bot's copy of the rules is stale."""
-    return {"context": RULES_CHANGED_NOTE} if os.path.exists(RULES_CHANGED) else None
+def context_note(**kwargs):
+    """pre_llm_call hook, appended to the user's message: today's date, and the note above while the bot's
+    copy of the rules is stale. Hermes keeps a conversation's system prompt as it was on its first message,
+    and the only date there is the day it started, so without this someone who first asked on 3 Nov was
+    told on 15 Nov that submissions were still open."""
+    notes = [f"Today is {datetime.now(timezone.utc):%A, %d %B %Y} (UTC). Go by this date, not the date "
+             "the conversation started."]
+    if os.path.exists(RULES_CHANGED):
+        notes.append(RULES_CHANGED_NOTE)
+    return {"context": "\n".join(notes)}
 
 
 def register(ctx):
     ctx.register_tool(name="search_near_docs", toolset="near_docs", schema=SEARCH_SCHEMA, handler=search_near_docs)
     ctx.register_tool(name="read_near_docs", toolset="near_docs", schema=READ_SCHEMA, handler=read_near_docs)
     ctx.register_hook("transform_llm_output", filter_links)
-    ctx.register_hook("pre_llm_call", rules_changed_note)
+    ctx.register_hook("pre_llm_call", context_note)
