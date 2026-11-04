@@ -31,12 +31,12 @@ class ContextNote(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home, mock.patch.object(nd, "datetime", Clock), \
                 mock.patch.object(nd, "RULES_CHANGED", str(Path(home) / "rules-changed")):
             self.assertEqual(nd.context_note()["context"],
-                             "Today is Sunday, 15 November 2026 (UTC). Submissions are closed; judging starts 16 Nov.")
+                             "Today is Sunday, 15 November 2026 (UTC). Submissions and change requests are closed; judging starts 16 Nov.")
 
     def test_phase_by_day(self):
         """Each boundary, by UTC day: the deadline is 14 Nov 23:59, so 14 Nov is still open."""
         cases = {(10, 31): "aren't open yet", (11, 1): "Submissions are open", (11, 14): "Submissions are open",
-                 (11, 15): "Submissions are closed", (11, 16): "Judging is under way",
+                 (11, 15): "change requests are closed", (11, 16): "Judging is under way",
                  (11, 18): "Judging is under way", (11, 19): "Judging is over", (12, 1): "Judging is over"}
         for (month, day), expected in cases.items():
             with self.subTest(month=month, day=day):
@@ -108,6 +108,7 @@ class LinkFilter(unittest.TestCase):
         "[skill](https://github.com/NEAR-Intents-Agent-API/skills)",
         "Agent API docs: https://docs.agentsonintents.com/integration/agent-api/overview",
         "naa_ key: https://partners.demo.agentsonintents.com/dashboard",
+        "Fix it at https://nearhackathon.com/request-changes. Partner docs: https://brrrain.fun/docs/",
         "Bold: **https://nearhackathon.com** and italic: _https://docs.near.org_",
         "Discord: https://discord.gg/nearprotocol and X: https://x.com/nearprotocol",
         "Status: https://x.com/NEARProtocol/status/123 and https://github.com/near",

@@ -2,8 +2,8 @@
 
 A Telegram and Discord bot ([@NearHackathonBot](https://t.me/NearHackathonBot)) that answers questions
 about [NEAR Hackathon](https://nearhackathon.com) (Nov 1–14, 2026): rules, dates, tracks, prizes and
-submitting, plus how to build on NEAR, answered from the official docs. It's run by
-NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
+submitting, plus how to build on NEAR, answered from the official docs. The bot is run by
+NEAR Builders; NEAR Foundation organizes the hackathon. See [SCOPE.md](SCOPE.md) for the product scope.
 
 ## How it works
 
@@ -16,9 +16,8 @@ NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
 - **Tools:** [`data/plugins/near-docs`](data/plugins/near-docs) has two read-only tools:
   `search_near_docs` and `read_near_docs`. They fetch only Markdown pages and `llms.txt` from
   docs.near.org, docs.near.ai and docs.near-intents.org, plus `nearhackathon.com/HACKATHON.md`.
-  HTTPS only, no query strings, no redirects off those hosts. [`data/plugins/faucet-alert`](data/plugins/faucet-alert)
-  has `report_faucet_down`, which DMs the maintainer when users say near-faucet.io is broken (no input, one DM
-  per 6 hours). All built-in Hermes tools are off.
+  HTTPS only, no query strings, no redirects off those hosts. The only other tool is `report_faucet_down`
+  ([`data/plugins/faucet-alert`](data/plugins/faucet-alert)). All built-in Hermes tools are off.
 - **Link filter:** the same plugin rewrites every reply so only links to an allowlist (the hackathon,
   NEAR's sites, the official community links and partner sites) survive; any other link, with or
   without `https://`, becomes "(link removed)". Names Telegram would turn into links but are usually
@@ -44,7 +43,7 @@ NEAR Builders. See [SCOPE.md](SCOPE.md) for the product scope.
 data/                 the bot: synced to the server's Hermes home (/opt/data in the container)
   config.yaml         model, lockdown, Telegram and Discord settings
   SOUL.md             instructions and hackathon knowledge
-  plugins/near-docs/  the read-only docs tools, the link filter, and each turn's note: today's date, stale rules
+  plugins/near-docs/  the read-only docs tools, the link filter, and each turn's note (date, phase, stale rules)
   plugins/welcome/    Telegram's /start and /help, Discord's /new and /help
   plugins/discord-server/  keeps the Discord bot in its own servers
   plugins/rate-limit/ a cap on questions per person
@@ -57,6 +56,7 @@ ops/sources.py        fetches the rules in a stable, comparable form
 ops/review.py         daily: a TEE model flags the last day's bad answers, sent to the home channel
 ops/faucet_alert.py   link to the faucet plugin; deployed as root's own copy for check.py
 ops/fresh_start.py    deploy.sh --reset: every conversation starts fresh, as /new does
+ops/PROMPT.md         the prompt for working through a daily review or rules alert with an agent
 ops/test.sh           ask the bot questions using the local data/, safely (see Testing)
 ops/fake_date/        test only: lets ops/test.sh ask as if it were another date
 ops/test-questions.txt  the default test questions
@@ -169,9 +169,14 @@ or Discord, when a tiny test call to
 its model fails or comes back from a different model or outside a TEE (a dead key, exhausted credits, a
 retired model ID), or when the live rules differ from `sources/` (with a diff). For a rule change:
 
-1. Update `data/SOUL.md` to match.
+1. Update `data/SOUL.md` everywhere the old rule appears, and add the change with its date to the "Have
+   the rules changed" FAQ entry. If dates moved, change all three places together: SOUL.md's DATES, `PHASES`
+   in near-docs, and the welcome greeting. New partners go in SOUL.md's partner list, and their sites in
+   near-docs' link allowlist with a unit test.
 2. Refresh the baseline: `python3 ops/sources.py`
-3. `ops/test.sh`, then `./deploy.sh --reset`.
+3. Add or update eval cases for each changed rule, then `./deploy.sh --reset` (it runs the regression gate).
+
+[`ops/PROMPT.md`](ops/PROMPT.md) walks an agent through the whole process.
 
 Until then the bot isn't left on the old copy: while the live `HACKATHON.md` differs from `sources/`,
 `check.py` keeps a flag file (`data/rules-changed`) and the near-docs plugin adds a note to every question

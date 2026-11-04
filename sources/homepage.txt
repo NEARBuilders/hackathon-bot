@@ -491,6 +491,11 @@ Docs
 — not available
 Git
 — not available
+BRRRAIN
+Memecoin with AI rewards
+Website
+Docs
+API
 05 / BUILDER TOOLKIT
 LESS SETUP.
 MORE SHIPPING
@@ -579,6 +584,8 @@ I agree that the organizers may use these details to review our submission and c
 Submissions open
 1 Nov 2026 · 00:00 UTC
 One submission per project. No wallet connection needed.
+Made a mistake in your submission?
+Request changes
 07 / FREQUENT QUERIES
 QUESTIONS?
 START HERE
@@ -594,6 +601,10 @@ When does it happen?
 The hackathon starts 1 Nov 2026 · 00:00 UTC. Development runs for two weeks and ends 14 Nov 2026 · 23:59 UTC, and results are announced by 18 Nov 2026 · 23:59 UTC. The full schedule is in the at-a-glance panel.
 What should we submit?
 A working prototype in a public repository and a public demo post on X: say you built it at NEAR HACKATHON and attach the demo video or screenshots. Send both links through the form before development ends, 14 Nov 2026 · 23:59 UTC.
+I made a mistake in my submission. Can I resubmit?
+Yes, no worries. Open the
+Request changes
+page, enter the email, NEAR wallet and repository link from your submission, tick the fields you want to change and leave your contact details. The organizers review every request by hand and may message you to confirm, especially before changing a payout wallet or a repository.
 How will projects be judged?
 Claude Code & Codex screen every project first: they check that it runs and does what the README says. The human judges above make the decisions. Previous NEAR hackathons evaluated technical implementation, design, impact, originality and sustainability — a good guide to prepare by.
 Can I build something across multiple tracks?

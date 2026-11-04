@@ -165,6 +165,7 @@ LINK_DOMAINS = {
     "agentsonintents.com", "chaindefuser.com",
     "aurora.dev", "hot-labs.org", "hotdao.ai", "rhea.finance", "meme.cooking", "hex.exchange",
     "svrn.net", "trezu.org", "outlayer.ai", "gomining.com", "hot-labs.gitbook.io", "gulf-labs.com",
+    "brrrain.fun",
     # From the rules' Q&A: the testnet faucet.
     "near-faucet.io",
     # Linked throughout the NEAR docs: protocol spec, node docs, NEAR's GitHub Pages, the default
@@ -272,8 +273,8 @@ RULES_CHANGED_NOTE = (
 # judging was still going on.
 PHASES = (  # (first day, where things stand from then on)
     (date(2026, 11, 1), "Submissions are open until 14 Nov 2026, 23:59 UTC."),
-    (date(2026, 11, 15), "Submissions are closed; judging starts 16 Nov."),
-    (date(2026, 11, 16), "Judging is under way; results are due by 18 Nov 2026, 23:59 UTC."),
+    (date(2026, 11, 15), "Submissions and change requests are closed; judging starts 16 Nov."),
+    (date(2026, 11, 16), "Submissions and change requests are closed. Judging is under way; results are due by 18 Nov 2026, 23:59 UTC."),
     (date(2026, 11, 19), "Judging is over; results should be out."),
 )
 BEFORE = "The hackathon starts 1 Nov 2026; submissions aren't open yet."

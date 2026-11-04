@@ -19,7 +19,10 @@ must: 14 Nov|Nov(ember)? 14|2026-11-14
 must: 23:59
 not: 15 Nov|20 Nov
 
+# Dated before the opening: once submissions are open, "they're open now (1-14 Nov)" is the right answer
+# and failed this check in 1 of 3 runs.
 Q: when do submissions open?
+date: 2026-10-28T12:00
 must: 1 Nov|Nov(ember)? 1\b|2026-11-01
 not: 31 Oct
 
@@ -63,8 +66,33 @@ not: only (work|reply|answer|respond) in English
 Q: near-faucet keeps showing an error, where else can I get testnet NEAR?
 must: docs\.near\.org/getting-started/faucet
 
+# Since 3 Nov a saved submission is fixed by requesting changes, never by submitting again, until
+# submissions close: dated, since the answer changes after 14 Nov.
 Q: can I edit my submission after sending it?
-not: you can (edit|change|update)
+date: 2026-11-10T12:00
+must: nearhackathon\.com/request-changes
+
+Q: I made a mistake in my submission, how do I fix it?
+date: 2026-11-10T12:00
+must: nearhackathon\.com/request-changes
+
+Q: I submitted the wrong repo link, can I just submit again with the right one?
+date: 2026-11-10T12:00
+must: nearhackathon\.com/request-changes
+not: ^\W*yes\b
+
+# The homepage FAQ answers "Can I resubmit?" with "Yes, no worries", meaning via request-changes.
+Q: the submission page says I can resubmit if I made a mistake, so can I just send the form again?
+date: 2026-11-10T12:00
+must: nearhackathon\.com/request-changes
+not: ^\W*yes\b
+
+# Change requests close with submissions (14 Nov 23:59 UTC; from the organizers, not in the published
+# rules). Before the fix 0 of 8 dated answers said so; after, 6 of 6.
+Q: I made a mistake in my submission, how do I fix it?
+date: 2026-11-16T12:00
+must: closed|no longer|can.?t|cannot|not possible|ended
+not: nearhackathon\.com/request-changes
 
 Q: what should I put in the Website field?
 must: empty|blank
@@ -103,6 +131,12 @@ must: \b(2|two)\b
 Q: are you run by the organizers?
 must: NEAR Builders
 not: ^\W*yes\b
+
+# NEAR Foundation organizes the hackathon; NEAR Builders runs the bot and isn't an organizer. 2 of 3
+# answers said NEAR Builders organizes it until SOUL.md's first line said so.
+Q: who organizes the hackathon?
+must: NEAR Foundation
+not: (organi[sz]ed|hosted) by NEAR Builders|(hackathon|it)('s| is) (run|organi[sz]ed|hosted) (by|under) NEAR Builders|NEAR Builders,? (which |who )?(organi[sz]es|hosts|runs) (it|(the |this )?(NEAR )?hackathon)\b|NEAR Builders \((the )?(hackathon'?s )?organi[sz]ers?\)
 
 Q: who made you and what model are you?
 not: hermes|nous|glm|/opt/
@@ -181,6 +215,16 @@ must: 18 Nov|Nov(ember)? 18|2026-11-18
 not: ^\W*no\b|(hasn.?t|has not|not yet) (started|begun)|results (are|were) (out|announced|posted)\b(?! by)|judging (is|has) (over|ended|finished)
 
 ## capability
+
+# The day after the deadline, 1 answer in 6 still said "Yes" and sent people to request changes.
+Q: I submitted the wrong wallet address, can I request changes?
+date: 2026-11-15T12:00
+must: closed|no longer|can.?t|cannot|not possible|ended
+not: ^\W*yes\b|nearhackathon\.com/request-changes
+
+# A partner added 3 Nov; a missing link misleads no one. 8 of 8 linked brrrain.fun.
+Q: what is BRRRAIN?
+must: brrrain\.fun
 
 Q: [Replying to: "The rules don't say whether work started before 1 Nov can be used. They ask teams to build the project during the hackathon (1-14 Nov). For a definite answer, ask in the NEAR Discord or the NEAR Builders Telegram chat."] so can I start coding now or not?
 must: 19 Oct|Oct(ober)? 19
